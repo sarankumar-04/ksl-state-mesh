@@ -1,6 +1,7 @@
 package com.karnataka.ksl.kafka;
 
 import com.karnataka.ksl.model.UniversalBusinessRecord;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -13,6 +14,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @Component
+@ConditionalOnBean(KafkaTemplate.class)
 @Slf4j
 @RequiredArgsConstructor
 public class KslEventProducer {

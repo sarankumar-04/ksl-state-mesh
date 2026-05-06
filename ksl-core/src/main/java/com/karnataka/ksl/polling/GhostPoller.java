@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-
+import org.springframework.lang.Nullable;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.List;
@@ -45,6 +45,7 @@ public class GhostPoller {
 
     private final ShadowRegistryRepository shadowRegistry;
     private final Map<String, DepartmentAdapter> adapters; // injected as a map by Spring
+    @Nullable
     private final KslEventProducer eventProducer;
 
     // Track change frequency per legacy ID for adaptive rate control
@@ -133,9 +134,11 @@ public class GhostPoller {
             shadowRegistry.updateHash(entry.getId(), newHash, Instant.now());
 
             // Fire the change event into the Kafka pipeline — same path as webhook events
+            if(eventProducer!=null){
             eventProducer.publishDepartmentChangeEvent(changed.get(), 
                                                         entry.getDepartmentCode(),
                                                         "GHOST_POLL");
+            }
         } else {
             // Decay the change counter over time for adaptive rate
             changeCounters.computeIfPresent(entry.getLegacyId(), 
