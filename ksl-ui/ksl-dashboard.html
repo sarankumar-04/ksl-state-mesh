@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>K-State Ledger — Live Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#050c18;
+  --surface:#0a1628;
+  --surface-2:#0f1f38;
+  --surface-3:#142545;
+  --border:rgba(255,255,255,0.07);
+  --border-2:rgba(255,255,255,0.12);
+  --text:#dce8f5;
+  --text-2:#7a99bb;
+  --text-3:#3d5a7a;
+  --blue:#2f88f0;
+  --blue-dim:rgba(47,136,240,0.12);
+  --teal:#00d4aa;
+  --teal-dim:rgba(0,212,170,0.12);
+  --amber:#f5a623;
+  --amber-dim:rgba(245,166,35,0.12);
+  --red:#f04f4f;
+  --red-dim:rgba(240,79,79,0.12);
+  --green:#2ecc8a;
+  --green-dim:rgba(46,204,138,0.12);
+  --purple:#a570f5;
+  --purple-dim:rgba(165,112,245,0.12);
+  --font:'IBM Plex Sans',sans-serif;
+  --mono:'IBM Plex Mono',monospace;
+  --r:8px;--r-sm:4px;
+}
+
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex;overflow-x:hidden;}
+
+/* scanline overlay */
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:9999;}
+
+/* ── SIDEBAR ── */
+.sidebar{width:220px;min-height:100vh;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;left:0;bottom:0;z-index:100;}
+
+.logo{padding:18px 16px 14px;border-bottom:1px solid var(--border);}
+.logo-badge{display:flex;align-items:center;gap:7px;padding:5px 9px;background:var(--blue-dim);border:1px solid rgba(47,136,240,0.25);border-radius:var(--r-sm);margin-bottom:8px;width:fit-content;}
+.logo-dot{width:7px;height:7px;border-radius:50%;background:var(--blue);animation:blink 1.8s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:1;box-shadow:0 0 6px var(--blue)}50%{opacity:0.3;box-shadow:none}}
+.logo-badge-text{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--blue);letter-spacing:.08em;}
+.logo-title{font-size:14px;font-weight:700;color:var(--text);letter-spacing:-.01em;}
+.logo-sub{font-size:10px;color:var(--text-3);margin-top:1px;font-family:var(--mono);}
+
+nav{padding:10px 8px;flex:1;overflow-y:auto;}
+.nav-section{margin-bottom:18px;}
+.nav-label{font-size:9px;font-weight:600;color:var(--text-3);letter-spacing:.12em;text-transform:uppercase;padding:0 8px;margin-bottom:5px;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:var(--r-sm);font-size:12.5px;font-weight:500;color:var(--text-2);cursor:pointer;transition:all .12s;margin-bottom:1px;border:1px solid transparent;}
+.nav-item:hover{background:var(--surface-2);color:var(--text);}
+.nav-item.active{background:var(--blue-dim);border-color:rgba(47,136,240,0.2);color:var(--blue);}
+.nav-icon{width:14px;height:14px;flex-shrink:0;}
+
+.sys-status{padding:10px 12px;border-top:1px solid var(--border);margin:0;}
+.sys-row{display:flex;align-items:center;justify-content:space-between;font-size:10px;margin-bottom:3px;}
+.sys-dot{width:6px;height:6px;border-radius:50%;margin-right:5px;display:inline-block;}
+.sys-dot.ok{background:var(--green);box-shadow:0 0 5px var(--green);}
+.sys-dot.warn{background:var(--amber);box-shadow:0 0 5px var(--amber);}
+
+/* ── MAIN ── */
+.main{margin-left:220px;flex:1;display:flex;flex-direction:column;min-height:100vh;}
+
+.topbar{height:52px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex-shrink:0;position:sticky;top:0;z-index:50;}
+.topbar-title{font-size:13px;font-weight:600;color:var(--text);letter-spacing:-.01em;}
+.topbar-right{display:flex;align-items:center;gap:10px;}
+.topbar-backend{display:flex;align-items:center;gap:6px;font-size:10px;font-family:var(--mono);color:var(--text-3);padding:4px 8px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);}
+.backend-dot{width:6px;height:6px;border-radius:50%;background:var(--text-3);}
+.backend-dot.connected{background:var(--green);box-shadow:0 0 5px var(--green);}
+.backend-dot.error{background:var(--red);box-shadow:0 0 5px var(--red);}
+
+.content{padding:20px 24px;flex:1;}
+
+/* tabs */
+.page{display:none;}.page.active{display:block;}
+
+/* ── TAGS ── */
+.tag{display:inline-flex;align-items:center;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:600;font-family:var(--mono);letter-spacing:.04em;}
+.tag-blue{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(47,136,240,0.2);}
+.tag-teal{background:var(--teal-dim);color:var(--teal);border:1px solid rgba(0,212,170,0.2);}
+.tag-amber{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(245,166,35,0.2);}
+.tag-red{background:var(--red-dim);color:var(--red);border:1px solid rgba(240,79,79,0.2);}
+.tag-green{background:var(--green-dim);color:var(--green);border:1px solid rgba(46,204,138,0.2);}
+.tag-purple{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(165,112,245,0.2);}
+
+/* ── METRICS ── */
+.metrics-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px;}
+.metric-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;position:relative;overflow:hidden;}
+.metric-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.metric-card.blue::before{background:linear-gradient(90deg,var(--blue),transparent);}
+.metric-card.green::before{background:linear-gradient(90deg,var(--green),transparent);}
+.metric-card.teal::before{background:linear-gradient(90deg,var(--teal),transparent);}
+.metric-card.amber::before{background:linear-gradient(90deg,var(--amber),transparent);}
+.metric-card.red::before{background:linear-gradient(90deg,var(--red),transparent);}
+.metric-label{font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-bottom:6px;}
+.metric-value{font-family:var(--mono);font-size:26px;font-weight:600;line-height:1;margin-bottom:4px;}
+.metric-sub{font-size:10px;color:var(--text-3);}
+.metric-loading{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--text-3);animation:fade .8s ease-in-out infinite alternate;}
+@keyframes fade{from{opacity:.3}to{opacity:.8}}
+
+/* ── SECTION GRID ── */
+.section-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.section-grid.wide{grid-template-columns:1fr;}
+
+/* ── CARDS ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.card-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);}
+.card-title{font-size:12.5px;font-weight:600;color:var(--text);}
+.card-body{padding:14px 16px;}
+.card-header-actions{display:flex;align-items:center;gap:8px;}
+
+/* ── TABLE ── */
+.data-table{width:100%;border-collapse:collapse;}
+.data-table th{text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-3);font-weight:600;padding:8px 12px;border-bottom:1px solid var(--border);}
+.data-table td{padding:9px 12px;font-size:11.5px;border-bottom:1px solid var(--border);color:var(--text-2);}
+.data-table tr:last-child td{border-bottom:none;}
+.data-table tr:hover td{background:var(--surface-2);}
+.ubid-code{font-family:var(--mono);font-size:11px;color:var(--blue);}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--r-sm);font-size:11.5px;font-weight:500;cursor:pointer;border:1px solid transparent;font-family:var(--font);transition:all .12s;}
+.btn-blue{background:var(--blue-dim);color:var(--blue);border-color:rgba(47,136,240,0.3);}
+.btn-blue:hover{background:rgba(47,136,240,0.2);}
+.btn-green{background:var(--green-dim);color:var(--green);border-color:rgba(46,204,138,0.3);}
+.btn-green:hover{background:rgba(46,204,138,0.2);}
+.btn-ghost{background:transparent;color:var(--text-2);border-color:var(--border-2);}
+.btn-ghost:hover{background:var(--surface-2);color:var(--text);}
+.btn-red{background:var(--red-dim);color:var(--red);border-color:rgba(240,79,79,0.3);}
+.btn-red:hover{background:rgba(240,79,79,0.2);}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+
+/* ── FORM ── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.form-group{display:flex;flex-direction:column;gap:5px;}
+.form-label{font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;}
+.form-input,.form-select{background:var(--surface-2);border:1px solid var(--border-2);border-radius:var(--r-sm);padding:8px 10px;font-size:12px;color:var(--text);font-family:var(--font);outline:none;transition:border-color .12s;}
+.form-input:focus,.form-select:focus{border-color:var(--blue);}
+.form-input::placeholder{color:var(--text-3);}
+.form-select option{background:var(--surface-2);}
+.form-full{grid-column:1/-1;}
+
+/* ── FLOW DIAGRAM ── */
+.flow-row{display:flex;align-items:center;gap:0;padding:12px;background:var(--surface-2);border-radius:var(--r-sm);}
+.flow-node{background:var(--surface-3);border:1px solid var(--border-2);border-radius:var(--r-sm);padding:8px 12px;text-align:center;min-width:72px;flex-shrink:0;}
+.flow-node.hl{border-color:rgba(47,136,240,0.4);background:var(--blue-dim);}
+.flow-node-title{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text);}
+.flow-node-sub{font-size:9px;color:var(--text-3);margin-top:2px;}
+.flow-arrow{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:0 4px;}
+.flow-arrow-line{height:1px;width:100%;background:linear-gradient(90deg,var(--border-2),var(--blue),var(--border-2));}
+.flow-arrow-label{font-size:9px;color:var(--text-3);font-family:var(--mono);}
+
+/* ── AUDIT ENTRY ── */
+.audit-entry{padding:10px 0;border-bottom:1px solid var(--border);display:grid;grid-template-columns:140px 1fr 90px 70px;align-items:center;gap:8px;font-size:11px;}
+.audit-entry:last-child{border-bottom:none;}
+.audit-time{font-family:var(--mono);font-size:10px;color:var(--text-3);}
+
+/* ── CONFLICT CARD ── */
+.conflict-card{background:var(--surface-2);border:1px solid rgba(245,166,35,0.2);border-radius:var(--r-sm);padding:14px;margin-bottom:10px;}
+.conflict-card:last-child{margin-bottom:0;}
+.conflict-ubid{font-family:var(--mono);font-size:11px;color:var(--amber);font-weight:600;margin-bottom:6px;}
+.conflict-field{font-size:11px;color:var(--text);margin-bottom:4px;}
+.conflict-values{font-size:10px;color:var(--text-3);font-family:var(--mono);margin-bottom:8px;}
+.conflict-actions{display:flex;gap:8px;}
+
+/* ── LOADING OVERLAY ── */
+.loading-bar{height:2px;background:linear-gradient(90deg,transparent,var(--blue),transparent);animation:loading-move 1.2s ease-in-out infinite;width:60%;}
+@keyframes loading-move{0%{transform:translateX(-200%)}100%{transform:translateX(400%)}}
+.empty-state{text-align:center;padding:32px;color:var(--text-3);font-size:12px;}
+.empty-state .ico{font-size:28px;margin-bottom:8px;}
+
+/* ── TOAST ── */
+#toast-container{position:fixed;bottom:20px;right:20px;z-index:9000;display:flex;flex-direction:column;gap:8px;}
+.toast{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--r);font-size:12px;font-weight:500;animation:slide-in .2s ease;max-width:340px;border:1px solid;}
+@keyframes slide-in{from{transform:translateX(30px);opacity:0}to{transform:none;opacity:1}}
+.toast.success{background:var(--surface-2);color:var(--green);border-color:rgba(46,204,138,0.3);}
+.toast.error{background:var(--surface-2);color:var(--red);border-color:rgba(240,79,79,0.3);}
+.toast.info{background:var(--surface-2);color:var(--blue);border-color:rgba(47,136,240,0.3);}
+
+/* ── SEARCH BAR ── */
+.search-row{display:flex;gap:8px;margin-bottom:14px;}
+.search-input{flex:1;background:var(--surface-2);border:1px solid var(--border-2);border-radius:var(--r-sm);padding:8px 12px;font-size:12px;color:var(--text);font-family:var(--mono);outline:none;}
+.search-input:focus{border-color:var(--blue);}
+
+/* ── DEPT LIST ── */
+.dept-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
+.dept-row:last-child{border-bottom:none;}
+.dept-icon{width:32px;height:32px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.dept-info{flex:1;}
+.dept-name{font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:2px;}
+.dept-meta{font-size:10px;color:var(--text-3);}
+
+/* ── REGISTRY ENTRY ── */
+.registry-row{display:grid;grid-template-columns:140px 100px 150px 100px 1fr;gap:8px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--border);font-size:11px;}
+.registry-row:last-child{border-bottom:none;}
+.registry-header{display:grid;grid-template-columns:140px 100px 150px 100px 1fr;gap:8px;padding:7px 12px;background:var(--surface-2);}
+.registry-header span{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-3);font-weight:600;}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;display:none;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r);padding:24px;width:560px;max-width:calc(100vw - 40px);max-height:calc(100vh - 40px);overflow-y:auto;}
+.modal-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:16px;}
+.modal-actions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end;}
+
+/* ── SWAGGER/H2 links ── */
+.link-card{display:flex;align-items:center;gap:12px;padding:14px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);text-decoration:none;transition:border-color .12s;}
+.link-card:hover{border-color:var(--blue);}
+.link-icon{width:36px;height:36px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.link-info .link-title{font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:2px;}
+.link-info .link-sub{font-size:10px;color:var(--text-3);}
+
+/* scrollbar */
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--surface-3);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<!-- Modal: Register UBID -->
+<div class="modal-overlay" id="modal-register">
+  <div class="modal">
+    <div class="modal-title">Register UBID → Legacy ID Mapping</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">UBID *</label>
+        <input class="form-input" id="reg-ubid" placeholder="KA-BIZ-2024-001"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Department Code *</label>
+        <select class="form-select" id="reg-dept">
+          <option value="SWS">SWS</option>
+          <option value="SHOPS_EST">SHOPS_EST</option>
+          <option value="FACTORIES">FACTORIES</option>
+          <option value="POLLUTION_CTRL">POLLUTION_CTRL</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Legacy ID *</label>
+        <input class="form-input" id="reg-legacyid" placeholder="SE-2024-BLR-3341"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Legacy ID Field Name</label>
+        <input class="form-input" id="reg-fieldname" placeholder="se_registration_no"/>
+      </div>
+      <div class="form-group form-full">
+        <label class="form-label">System Endpoint</label>
+        <input class="form-input" id="reg-endpoint" placeholder="http://localhost:8081/shops-est/api"/>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-register')">Cancel</button>
+      <button class="btn btn-blue" onclick="submitRegistration()">Register Mapping</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Trigger SWS Propagation -->
+<div class="modal-overlay" id="modal-propagate">
+  <div class="modal">
+    <div class="modal-title">Trigger SWS → Departments Propagation</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">UBID *</label>
+        <input class="form-input" id="prop-ubid" placeholder="KA-BIZ-2024-001"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Business Name</label>
+        <input class="form-input" id="prop-name" placeholder="Acme Pvt Ltd"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Address Line 1</label>
+        <input class="form-input" id="prop-addr1" placeholder="No. 42, Brigade Road"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">City</label>
+        <input class="form-input" id="prop-city" placeholder="Bengaluru"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Operational Status</label>
+        <select class="form-select" id="prop-status">
+          <option value="ACTIVE">ACTIVE</option>
+          <option value="SUSPENDED">SUSPENDED</option>
+          <option value="CLOSED">CLOSED</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Primary Phone</label>
+        <input class="form-input" id="prop-phone" placeholder="+91 9876543210"/>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-propagate')">Cancel</button>
+      <button class="btn btn-green" onclick="submitPropagation()">Trigger Propagation</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Send Webhook -->
+<div class="modal-overlay" id="modal-webhook">
+  <div class="modal">
+    <div class="modal-title">Send Webhook Event (Dept → KSL)</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Department Code *</label>
+        <select class="form-select" id="wh-dept">
+          <option value="SHOPS_EST">SHOPS_EST</option>
+          <option value="FACTORIES">FACTORIES</option>
+          <option value="POLLUTION_CTRL">POLLUTION_CTRL</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">UBID *</label>
+        <input class="form-input" id="wh-ubid" placeholder="KA-BIZ-2024-001"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Business Name</label>
+        <input class="form-input" id="wh-name" placeholder="Acme Pvt Ltd"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Signatory Name</label>
+        <input class="form-input" id="wh-sig-name" placeholder="Rahul Sharma"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Signatory Designation</label>
+        <input class="form-input" id="wh-sig-desig" placeholder="Director"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Signatory Email</label>
+        <input class="form-input" id="wh-sig-email" placeholder="rahul@acme.in"/>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-webhook')">Cancel</button>
+      <button class="btn btn-blue" onclick="submitWebhook()">Send Webhook</button>
+    </div>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-badge"><div class="logo-dot"></div><span class="logo-badge-text">KSL v1.0</span></div>
+    <div class="logo-title">K-State Ledger</div>
+    <div class="logo-sub">Karnataka SWS Interop</div>
+  </div>
+  <nav>
+    <div class="nav-section">
+      <div class="nav-label">Monitor</div>
+      <div class="nav-item active" data-page="overview" onclick="switchPage('overview', this)">
+        <svg class="nav-icon" fill="none" viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/></svg>
+        Overview
+      </div>
+      <div class="nav-item" data-page="audit" onclick="switchPage('audit', this)">
+        <svg class="nav-icon" fill="none" viewBox="0 0 16 16"><path d="M2 4h12M2 8h12M2 12h8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        Audit Ledger
+      </div>
+      <div class="nav-item" data-page="conflicts" onclick="switchPage('conflicts', this)">
+        <svg class="nav-icon" fill="none" viewBox="0 0 16 16"><path d="M8 2L2 14h12L8 2z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 6v4M8 11.5v.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        Conflicts
+        <span class="tag tag-amber" id="nav-conflict-count" style="margin-left:auto;font-size:9px;"></span>
+      </div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Manage</div>
+      <div class="nav-item" data-page="registry" onclick="switchPage('registry', this)">
+        <svg class="nav-icon" fill="none" viewBox="0 0 16 16"><circle cx="8" cy="6" r="3" stroke="currentColor" stroke-width="1.2"/><path d="M2 14c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        Shadow Registry
+      </div>
+      <div class="nav-item" data-page="trigger" onclick="switchPage('trigger', this)">
+        <svg class="nav-icon" fill="none" viewBox="0 0 16 16"><polygon points="3,2 13,8 3,14" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" fill="none"/></svg>
+        Test / Trigger
+      </div>
+      <div class="nav-item" data-page="devtools" onclick="switchPage('devtools', this)">
+        <svg class="nav-icon" fill="none" viewBox="0 0 16 16"><path d="M5 4L2 8l3 4M11 4l3 4-3 4M8 3l-1.5 10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Dev Tools
+      </div>
+    </div>
+  </nav>
+  <div class="sys-status">
+    <div class="sys-row"><span style="color:var(--text-2);font-size:10px;font-weight:600;">Backend</span><span id="sys-backend" class="tag tag-blue" style="font-size:9px;">Checking…</span></div>
+    <div class="sys-row"><span style="color:var(--text-3);font-size:10px;">H2 DB</span><span id="sys-db" style="font-size:10px;color:var(--text-3);">—</span></div>
+    <div class="sys-row"><span style="color:var(--text-3);font-size:10px;">Swagger</span><span id="sys-swagger" style="font-size:10px;color:var(--text-3);">—</span></div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <header class="topbar">
+    <span class="topbar-title">Karnataka SWS Interoperability Layer</span>
+    <div class="topbar-right">
+      <div class="topbar-backend">
+        <div class="backend-dot" id="conn-dot"></div>
+        <span id="conn-label">localhost:8080</span>
+      </div>
+      <button class="btn btn-ghost" style="font-size:11px;" onclick="refreshAll()">↻ Refresh</button>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- PAGE: Overview -->
+    <div class="page active" id="page-overview">
+      <div class="metrics-grid">
+        <div class="metric-card blue">
+          <div class="metric-label">Total Mappings</div>
+          <div class="metric-value" id="m-total" style="color:var(--blue)"><div class="metric-loading">—</div></div>
+          <div class="metric-sub">Shadow registry entries</div>
+        </div>
+        <div class="metric-card green">
+          <div class="metric-label">Active Mappings</div>
+          <div class="metric-value" id="m-active" style="color:var(--green)"><div class="metric-loading">—</div></div>
+          <div class="metric-sub">Status: ACTIVE</div>
+        </div>
+        <div class="metric-card teal">
+          <div class="metric-label">Propagations ✓</div>
+          <div class="metric-value" id="m-success" style="color:var(--teal)"><div class="metric-loading">—</div></div>
+          <div class="metric-sub">Audit: SUCCESS</div>
+        </div>
+        <div class="metric-card amber">
+          <div class="metric-label">Open Conflicts</div>
+          <div class="metric-value" id="m-conflicts" style="color:var(--amber)"><div class="metric-loading">—</div></div>
+          <div class="metric-sub">CONFLICT_HELD</div>
+        </div>
+        <div class="metric-card red">
+          <div class="metric-label">Failed Props.</div>
+          <div class="metric-value" id="m-failed" style="color:var(--red)"><div class="metric-loading">—</div></div>
+          <div class="metric-sub">Audit: FAILED</div>
+        </div>
+      </div>
+
+      <div class="section-grid">
+        <!-- Architecture Flow -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">Propagation Architecture</span><span class="tag tag-blue">Bi-directional</span></div>
+          <div class="card-body">
+            <div style="font-size:10px;color:var(--text-3);margin-bottom:12px;">Direction 1 — SWS → Departments</div>
+            <div class="flow-row" style="margin-bottom:12px;">
+              <div class="flow-node hl"><div class="flow-node-title">SWS</div><div class="flow-node-sub">Source</div></div>
+              <div class="flow-arrow"><div class="flow-arrow-line"></div><div class="flow-arrow-label">Kafka</div></div>
+              <div class="flow-node"><div class="flow-node-title">KSL Core</div><div class="flow-node-sub">Translate</div></div>
+              <div class="flow-arrow"><div class="flow-arrow-line"></div><div class="flow-arrow-label">Fan-out</div></div>
+              <div style="display:flex;flex-direction:column;gap:4px;">
+                <div class="flow-node" style="padding:5px 8px;"><div class="flow-node-title" style="font-size:10px;">Shops Est.</div></div>
+                <div class="flow-node" style="padding:5px 8px;"><div class="flow-node-title" style="font-size:10px;">Factories</div></div>
+                <div class="flow-node" style="padding:5px 8px;"><div class="flow-node-title" style="font-size:10px;">Pollution</div></div>
+              </div>
+            </div>
+            <div style="font-size:10px;color:var(--text-3);margin-bottom:12px;">Direction 2 — Departments → SWS</div>
+            <div class="flow-row">
+              <div style="display:flex;flex-direction:column;gap:4px;">
+                <div class="flow-node" style="padding:5px 8px;"><div class="flow-node-title" style="font-size:10px;">Factories</div><div class="flow-node-sub">Ghost Poll</div></div>
+                <div class="flow-node" style="padding:5px 8px;"><div class="flow-node-title" style="font-size:10px;">Shops Est.</div><div class="flow-node-sub">Webhook</div></div>
+              </div>
+              <div class="flow-arrow"><div class="flow-arrow-line"></div><div class="flow-arrow-label">UBS norm.</div></div>
+              <div class="flow-node"><div class="flow-node-title">KSL Core</div><div class="flow-node-sub">UBID Join</div></div>
+              <div class="flow-arrow"><div class="flow-arrow-line"></div><div class="flow-arrow-label">Write</div></div>
+              <div class="flow-node hl"><div class="flow-node-title">SWS</div><div class="flow-node-sub">Target</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Departments -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">Connected Departments</span><span class="tag tag-teal">4 Adapters</span></div>
+          <div class="card-body">
+            <div class="dept-row">
+              <div class="dept-icon" style="background:var(--blue-dim);color:var(--blue);">⬡</div>
+              <div class="dept-info"><div class="dept-name">Single Window System (SWS)</div><div class="dept-meta">REST API · Source of Truth · Port 8080</div></div>
+              <span class="tag tag-green">Primary</span>
+            </div>
+            <div class="dept-row">
+              <div class="dept-icon" style="background:var(--teal-dim);color:var(--teal);">◈</div>
+              <div class="dept-info"><div class="dept-name">Shops &amp; Establishments</div><div class="dept-meta">REST API · Webhook · Port 8081</div></div>
+              <span class="tag tag-teal">Adapter</span>
+            </div>
+            <div class="dept-row">
+              <div class="dept-icon" style="background:var(--purple-dim);color:var(--purple);">◎</div>
+              <div class="dept-info"><div class="dept-name">Factories Department</div><div class="dept-meta">Ghost Poll (2 min) · Port 8082</div></div>
+              <span class="tag tag-purple">Poller</span>
+            </div>
+            <div class="dept-row">
+              <div class="dept-icon" style="background:var(--amber-dim);color:var(--amber);">◇</div>
+              <div class="dept-info"><div class="dept-name">Pollution Control Board</div><div class="dept-meta">Snapshot Diff · Port 8083</div></div>
+              <span class="tag tag-amber">Poller</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Audit (overview) -->
+      <div class="card section-grid wide">
+        <div class="card-header">
+          <span class="card-title">Recent Audit Entries</span>
+          <div class="card-header-actions">
+            <span class="tag tag-teal">Append-only ledger</span>
+            <button class="btn btn-ghost" style="font-size:11px;" onclick="switchPage('audit', document.querySelector('[data-page=audit]'))">View All →</button>
+          </div>
+        </div>
+        <div id="overview-audit-body">
+          <div class="empty-state"><div class="ico">⏳</div>Loading audit entries…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: Audit Ledger -->
+    <div class="page" id="page-audit">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Audit Ledger</span>
+          <div class="card-header-actions">
+            <span class="tag tag-teal">Immutable</span>
+            <button class="btn btn-ghost" style="font-size:11px;" onclick="loadAuditByUBID()">Search UBID</button>
+          </div>
+        </div>
+        <div class="card-body" style="padding-bottom:0;">
+          <div class="search-row">
+            <input class="search-input" id="audit-ubid-input" placeholder="Enter UBID (e.g. KA-BIZ-2024-001) or leave blank for all conflicts…"/>
+            <button class="btn btn-blue" onclick="loadAuditByUBID()">Search</button>
+            <button class="btn btn-ghost" onclick="loadAllAudit()">Show All</button>
+          </div>
+        </div>
+        <div id="audit-table-body">
+          <div class="empty-state"><div class="ico">📋</div>Enter a UBID to trace its audit trail, or click Show All.</div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px;" class="card">
+        <div class="card-header"><span class="card-title">Trace by Correlation ID</span></div>
+        <div class="card-body" style="padding-bottom:0;">
+          <div class="search-row">
+            <input class="search-input" id="corr-input" placeholder="Correlation ID…" style="font-family:var(--mono);"/>
+            <button class="btn btn-blue" onclick="loadByCorrelation()">Trace</button>
+          </div>
+        </div>
+        <div id="corr-table-body"></div>
+      </div>
+    </div>
+
+    <!-- PAGE: Conflicts -->
+    <div class="page" id="page-conflicts">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Unresolved Conflicts</span>
+          <div class="card-header-actions">
+            <span class="tag tag-amber" id="conflict-count-tag">—</span>
+            <button class="btn btn-ghost" style="font-size:11px;" onclick="loadConflicts()">↻ Refresh</button>
+          </div>
+        </div>
+        <div id="conflicts-body" style="padding:14px;">
+          <div class="empty-state"><div class="ico">⏳</div>Loading conflicts…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: Shadow Registry -->
+    <div class="page" id="page-registry">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Shadow Registry</span>
+          <div class="card-header-actions">
+            <span class="tag tag-blue" id="registry-count-tag">—</span>
+            <button class="btn btn-blue" onclick="openModal('modal-register')">+ Register Mapping</button>
+          </div>
+        </div>
+        <div class="card-body" style="padding-bottom:0;">
+          <div class="search-row">
+            <input class="search-input" id="reg-search-ubid" placeholder="Filter by UBID…"/>
+            <button class="btn btn-blue" onclick="loadRegistryByUBID()">Search</button>
+            <button class="btn btn-ghost" onclick="loadRegistry()">Show All</button>
+          </div>
+        </div>
+        <div id="registry-body">
+          <div class="empty-state"><div class="ico">⏳</div>Loading registry…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: Test / Trigger -->
+    <div class="page" id="page-trigger">
+      <div class="section-grid">
+        <div class="card">
+          <div class="card-header"><span class="card-title">SWS → Departments Propagation</span><span class="tag tag-green">Direction 1</span></div>
+          <div class="card-body">
+            <p style="font-size:11.5px;color:var(--text-2);margin-bottom:14px;line-height:1.6;">Manually trigger a service request propagation as if it originated in SWS. Useful for sandbox testing of the fan-out pipeline.</p>
+            <button class="btn btn-green" onclick="openModal('modal-propagate')">▶ Trigger SWS Propagation</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Department Webhook → KSL</span><span class="tag tag-blue">Direction 2</span></div>
+          <div class="card-body">
+            <p style="font-size:11.5px;color:var(--text-2);margin-bottom:14px;line-height:1.6;">Simulate a department system sending a webhook event to KSL. The record will be normalized and written to SWS.</p>
+            <button class="btn btn-blue" onclick="openModal('modal-webhook')">▶ Send Dept Webhook</button>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px;">
+        <div class="card-header"><span class="card-title">Response Log</span></div>
+        <div class="card-body">
+          <pre id="trigger-log" style="font-family:var(--mono);font-size:11px;color:var(--text-2);background:var(--surface-2);padding:12px;border-radius:var(--r-sm);min-height:80px;white-space:pre-wrap;word-break:break-all;">Waiting for trigger…</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: Dev Tools -->
+    <div class="page" id="page-devtools">
+      <div style="margin-bottom:14px;font-size:12px;color:var(--text-3);">Quick links to Spring Boot developer tools. Requires the backend running on <span style="font-family:var(--mono);color:var(--blue);">localhost:8080</span>.</div>
+      <div class="section-grid">
+        <a class="link-card" href="http://localhost:8080/swagger-ui.html" target="_blank">
+          <div class="link-icon" style="background:var(--green-dim);color:var(--green);">⚙</div>
+          <div class="link-info">
+            <div class="link-title">Swagger UI</div>
+            <div class="link-sub">Interactive API explorer → localhost:8080/swagger-ui.html</div>
+          </div>
+          <span style="margin-left:auto;font-size:16px;color:var(--text-3);">↗</span>
+        </a>
+        <a class="link-card" href="http://localhost:8080/h2-console" target="_blank">
+          <div class="link-icon" style="background:var(--blue-dim);color:var(--blue);">🗄</div>
+          <div class="link-info">
+            <div class="link-title">H2 Console</div>
+            <div class="link-sub">In-memory DB browser → localhost:8080/h2-console</div>
+          </div>
+          <span style="margin-left:auto;font-size:16px;color:var(--text-3);">↗</span>
+        </a>
+        <a class="link-card" href="http://localhost:8080/actuator/health" target="_blank">
+          <div class="link-icon" style="background:var(--teal-dim);color:var(--teal);">♥</div>
+          <div class="link-info">
+            <div class="link-title">Actuator Health</div>
+            <div class="link-sub">Spring health endpoint → /actuator/health</div>
+          </div>
+          <span style="margin-left:auto;font-size:16px;color:var(--text-3);">↗</span>
+        </a>
+        <a class="link-card" href="http://localhost:8080/api-docs" target="_blank">
+          <div class="link-icon" style="background:var(--purple-dim);color:var(--purple);">📄</div>
+          <div class="link-info">
+            <div class="link-title">OpenAPI JSON</div>
+            <div class="link-sub">Raw OpenAPI spec → /api-docs</div>
+          </div>
+          <span style="margin-left:auto;font-size:16px;color:var(--text-3);">↗</span>
+        </a>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <div class="card-header"><span class="card-title">H2 Console — Connection Details</span></div>
+        <div class="card-body">
+          <table style="font-size:12px;border-collapse:collapse;width:100%;">
+            <tr><td style="padding:5px 12px 5px 0;color:var(--text-3);width:160px;">JDBC URL</td><td style="font-family:var(--mono);color:var(--text);">jdbc:h2:mem:ksldb</td></tr>
+            <tr><td style="padding:5px 12px 5px 0;color:var(--text-3);">Username</td><td style="font-family:var(--mono);color:var(--text);">ksl</td></tr>
+            <tr><td style="padding:5px 12px 5px 0;color:var(--text-3);">Password</td><td style="font-family:var(--mono);color:var(--text);">ksl</td></tr>
+            <tr><td style="padding:5px 12px 5px 0;color:var(--text-3);">Driver</td><td style="font-family:var(--mono);color:var(--text);">org.h2.Driver</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:14px;">
+        <div class="card-header"><span class="card-title">Run in VS Code — Quick Start</span></div>
+        <div class="card-body">
+          <div style="font-size:12px;color:var(--text-2);line-height:1.8;">
+            <div style="margin-bottom:10px;"><span style="color:var(--text-3);">1.</span> Open <span style="font-family:var(--mono);color:var(--blue);">ksl-fixed/ksl-core</span> in VS Code</div>
+            <div style="margin-bottom:10px;"><span style="color:var(--text-3);">2.</span> Make sure Java 17+ and Maven are installed. Run:</div>
+            <pre style="font-family:var(--mono);font-size:11px;background:var(--surface-2);padding:10px;border-radius:var(--r-sm);margin-bottom:10px;color:var(--green);">mvn spring-boot:run</pre>
+            <div style="margin-bottom:10px;"><span style="color:var(--text-3);">3.</span> Backend starts on <span style="font-family:var(--mono);color:var(--blue);">localhost:8080</span></div>
+            <div style="margin-bottom:10px;"><span style="color:var(--text-3);">4.</span> Open this <span style="font-family:var(--mono);color:var(--blue);">ksl-dashboard.html</span> file in your browser</div>
+            <div style="margin-bottom:10px;"><span style="color:var(--text-3);">5.</span> Kafka is optional — set <span style="font-family:var(--mono);color:var(--amber);">KAFKA_BOOTSTRAP_SERVERS</span> env var, or it will run without events</div>
+            <div style="font-size:11px;color:var(--text-3);padding:8px;background:var(--surface-2);border-radius:var(--r-sm);border-left:2px solid var(--amber);">
+              Note: This UI calls <span style="font-family:var(--mono);">localhost:8080</span> directly. If running a web server, ensure CORS is allowed (it is by default via CorsConfig.java). Auth: <span style="font-family:var(--mono);">ksl-admin / ksl-sandbox-2024</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+// ── CONFIG ─────────────────────────────────────────────────────────────────
+const BASE = 'http://localhost:8080/api/v1/ksl';
+const AUTH = 'Basic ' + btoa('ksl-admin:ksl-sandbox-2024');
+
+async function api(path, opts = {}) {
+  const res = await fetch(BASE + path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', Authorization: AUTH, ...(opts.headers||{}) }
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+  return res.json();
+}
+
+// ── TOAST ──────────────────────────────────────────────────────────────────
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ── PAGE NAVIGATION ────────────────────────────────────────────────────────
+function switchPage(name, navEl) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  navEl.classList.add('active');
+  if (name === 'registry') loadRegistry();
+  if (name === 'conflicts') loadConflicts();
+  if (name === 'audit') {}
+}
+
+// ── MODAL ──────────────────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ── BACKEND HEALTH CHECK ───────────────────────────────────────────────────
+async function checkBackend() {
+  const dot = document.getElementById('conn-dot');
+  const label = document.getElementById('conn-label');
+  const sysBackend = document.getElementById('sys-backend');
+  try {
+    await api('/stats');
+    dot.classList.add('connected');
+    dot.classList.remove('error');
+    label.textContent = 'localhost:8080 ✓';
+    sysBackend.className = 'tag tag-green';
+    sysBackend.textContent = 'Online';
+    document.getElementById('sys-db').textContent = '✓ H2 active';
+    document.getElementById('sys-db').style.color = 'var(--green)';
+    document.getElementById('sys-swagger').textContent = '→ /swagger-ui.html';
+    document.getElementById('sys-swagger').style.color = 'var(--blue)';
+  } catch(e) {
+    dot.classList.add('error');
+    dot.classList.remove('connected');
+    label.textContent = 'localhost:8080 — offline';
+    sysBackend.className = 'tag tag-red';
+    sysBackend.textContent = 'Offline';
+  }
+}
+
+// ── STATS ──────────────────────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const s = await api('/stats');
+    document.getElementById('m-total').textContent = s.totalRegistrations;
+    document.getElementById('m-active').textContent = s.activeRegistrations;
+    document.getElementById('m-success').textContent = s.successfulPropagations;
+    document.getElementById('m-conflicts').textContent = s.unresolvedConflicts;
+    document.getElementById('m-failed').textContent = s.failedPropagations;
+    const cc = document.getElementById('nav-conflict-count');
+    cc.textContent = s.unresolvedConflicts > 0 ? s.unresolvedConflicts : '';
+    document.getElementById('conflict-count-tag').textContent = s.unresolvedConflicts + ' Pending';
+  } catch(e) {
+    ['m-total','m-active','m-success','m-conflicts','m-failed'].forEach(id => {
+      document.getElementById(id).innerHTML = '<span style="color:var(--red);font-size:16px;">ERR</span>';
+    });
+  }
+}
+
+// ── OVERVIEW AUDIT ─────────────────────────────────────────────────────────
+async function loadOverviewAudit() {
+  const body = document.getElementById('overview-audit-body');
+  try {
+    // fetch conflicts first, then any audit entries
+    const [conflicts, reg] = await Promise.allSettled([
+      api('/audit/conflicts'),
+      api('/registry?size=3')
+    ]);
+    // use first registry ubid to pull some audit
+    let entries = [];
+    if (conflicts.status === 'fulfilled') entries = [...conflicts.value.slice(0,3)];
+    if (entries.length === 0 && reg.status === 'fulfilled' && reg.value.content?.length) {
+      const ubid = reg.value.content[0].ubid;
+      try { entries = (await api('/audit/' + ubid)).slice(0,5); } catch {}
+    }
+    if (entries.length === 0) {
+      body.innerHTML = '<div class="empty-state"><div class="ico">📭</div>No audit entries yet — trigger a propagation to see results.</div>';
+      return;
+    }
+    body.innerHTML = renderAuditTable(entries);
+  } catch(e) {
+    body.innerHTML = `<div class="empty-state"><div class="ico">⚠</div>${e.message}</div>`;
+  }
+}
+
+// ── AUDIT TABLE RENDER ─────────────────────────────────────────────────────
+function renderAuditTable(entries) {
+  if (!entries.length) return '<div class="empty-state"><div class="ico">📭</div>No entries found.</div>';
+  const statusTag = s => {
+    const map = {SUCCESS:'green',PENDING:'blue',RETRYING:'blue',FAILED:'red',CONFLICT_HELD:'amber',ROLLED_BACK:'purple'};
+    return `<span class="tag tag-${map[s]||'ghost'}">${s}</span>`;
+  };
+  const rows = entries.map(e => `
+    <div class="audit-entry">
+      <span class="ubid-code">${e.ubid||'—'}</span>
+      <span style="color:var(--text-2);">${e.sourceSystem||'—'} → ${e.targetSystem||'—'}${e.correlationId?` <span style="font-family:var(--mono);font-size:9px;color:var(--text-3);">${e.correlationId.slice(0,12)}…</span>`:''}${e.conflictDetected?' <span class="tag tag-amber">⚡ conflict</span>':''}</span>
+      ${statusTag(e.propagationStatus||'PENDING')}
+      <span class="audit-time">${e.recordedAt ? new Date(e.recordedAt).toLocaleTimeString() : '—'}</span>
+    </div>
+  `).join('');
+  return `<div style="padding:0 16px;">${rows}</div>`;
+}
+
+// ── AUDIT PAGE ─────────────────────────────────────────────────────────────
+async function loadAuditByUBID() {
+  const ubid = document.getElementById('audit-ubid-input').value.trim();
+  const body = document.getElementById('audit-table-body');
+  if (!ubid) { loadAllAudit(); return; }
+  body.innerHTML = '<div class="empty-state"><div class="metric-loading">Searching…</div></div>';
+  try {
+    const entries = await api('/audit/' + encodeURIComponent(ubid));
+    body.innerHTML = renderAuditTable(entries);
+  } catch(e) {
+    body.innerHTML = `<div class="empty-state"><div class="ico">⚠</div>${e.message}</div>`;
+    toast('Failed to load audit: ' + e.message, 'error');
+  }
+}
+
+async function loadAllAudit() {
+  const body = document.getElementById('audit-table-body');
+  body.innerHTML = '<div class="empty-state"><div class="metric-loading">Loading…</div></div>';
+  try {
+    const entries = await api('/audit/conflicts');
+    if (!entries.length) {
+      body.innerHTML = '<div class="empty-state"><div class="ico">✅</div>No CONFLICT_HELD entries. Use search above to trace a specific UBID.</div>';
+      return;
+    }
+    body.innerHTML = renderAuditTable(entries);
+  } catch(e) {
+    body.innerHTML = `<div class="empty-state"><div class="ico">⚠</div>${e.message}</div>`;
+  }
+}
+
+async function loadByCorrelation() {
+  const corr = document.getElementById('corr-input').value.trim();
+  const body = document.getElementById('corr-table-body');
+  if (!corr) return;
+  body.innerHTML = '<div class="empty-state"><div class="metric-loading">Tracing…</div></div>';
+  try {
+    const entries = await api('/audit/correlation/' + encodeURIComponent(corr));
+    body.innerHTML = renderAuditTable(entries);
+  } catch(e) {
+    body.innerHTML = `<div class="empty-state"><div class="ico">⚠</div>${e.message}</div>`;
+    toast('Trace failed: ' + e.message, 'error');
+  }
+}
+
+// ── CONFLICTS PAGE ─────────────────────────────────────────────────────────
+async function loadConflicts() {
+  const body = document.getElementById('conflicts-body');
+  body.innerHTML = '<div class="empty-state"><div class="metric-loading">Loading…</div></div>';
+  try {
+    const entries = await api('/audit/conflicts');
+    if (!entries.length) {
+      body.innerHTML = '<div class="empty-state"><div class="ico">✅</div>No unresolved conflicts. System is clean.</div>';
+      return;
+    }
+    body.innerHTML = entries.map(e => `
+      <div class="conflict-card">
+        <div class="conflict-ubid">UBID: ${e.ubid}</div>
+        <div class="conflict-field">Field: <strong>${e.fieldPath||'(unknown)'}</strong></div>
+        <div class="conflict-values">
+          ${e.sourceSystem||'?'}: <span style="color:var(--text);">${e.oldValue||'—'}</span> &nbsp;·&nbsp;
+          ${e.targetSystem||'?'}: <span style="color:var(--text);">${e.newValue||'—'}</span>
+        </div>
+        ${e.conflictResolutionPolicy ? `<div style="font-size:10px;color:var(--text-3);margin-bottom:8px;">Policy: ${e.conflictResolutionPolicy}${e.conflictWinner?' → '+e.conflictWinner+' wins':''}</div>` : ''}
+        ${e.conflictExplanation ? `<div style="font-size:10px;color:var(--text-2);margin-bottom:8px;padding:6px 8px;background:var(--surface-3);border-radius:3px;">${e.conflictExplanation}</div>` : ''}
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div class="conflict-actions">
+            <span class="tag tag-amber">CONFLICT_HELD</span>
+            <span style="font-family:var(--mono);font-size:9px;color:var(--text-3);">${e.correlationId||''}</span>
+          </div>
+          <span style="font-size:10px;color:var(--text-3);">${e.recordedAt ? new Date(e.recordedAt).toLocaleString() : ''}</span>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {
+    body.innerHTML = `<div class="empty-state"><div class="ico">⚠</div>${e.message}</div>`;
+    toast('Failed: ' + e.message, 'error');
+  }
+}
+
+// ── REGISTRY PAGE ──────────────────────────────────────────────────────────
+async function loadRegistry(page = 0) {
+  const body = document.getElementById('registry-body');
+  body.innerHTML = '<div class="empty-state"><div class="metric-loading">Loading…</div></div>';
+  try {
+    const data = await api(`/registry?page=${page}&size=20`);
+    const entries = data.content || [];
+    const tag = document.getElementById('registry-count-tag');
+    tag.textContent = data.totalElements + ' total';
+    if (!entries.length) {
+      body.innerHTML = '<div class="empty-state"><div class="ico">📭</div>No registry entries. Register a mapping above.</div>';
+      return;
+    }
+    const statusTag = s => {
+      const map = {ACTIVE:'green',PENDING_SYNC:'blue',CONFLICT:'amber',STALE:'red',INACTIVE:'ghost'};
+      return `<span class="tag tag-${map[s]||'ghost'}">${s}</span>`;
+    };
+    body.innerHTML = `
+      <div class="registry-header">
+        <span>UBID</span><span>Department</span><span>Legacy ID</span><span>Status</span><span>Last Synced</span>
+      </div>
+      ${entries.map(e => `
+        <div class="registry-row">
+          <span class="ubid-code">${e.ubid}</span>
+          <span class="tag tag-blue">${e.departmentCode}</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text-2);">${e.legacyId}</span>
+          ${statusTag(e.syncStatus)}
+          <span style="font-size:10px;color:var(--text-3);">${e.lastSyncedAt ? new Date(e.lastSyncedAt).toLocaleString() : '—'}</span>
+        </div>
+      `).join('')}
+    `;
+  } catch(e) {
+    body.innerHTML = `<div class="empty-state"><div class="ico">⚠</div>${e.message}</div>`;
+    toast('Registry load failed: ' + e.message, 'error');
+  }
+}
+
+async function loadRegistryByUBID() {
+  const ubid = document.getElementById('reg-search-ubid').value.trim();
+  if (!ubid) { loadRegistry(); return; }
+  const body = document.getElementById('registry-body');
+  body.innerHTML = '<div class="empty-state"><div class="metric-loading">Searching…</div></div>';
+  try {
+    const entries = await api('/registry/' + encodeURIComponent(ubid));
+    if (!entries.length) {
+      body.innerHTML = '<div class="empty-state"><div class="ico">🔍</div>No mappings found for this UBID.</div>';
+      return;
+    }
+    const statusTag = s => {
+      const map = {ACTIVE:'green',PENDING_SYNC:'blue',CONFLICT:'amber',STALE:'red',INACTIVE:'ghost'};
+      return `<span class="tag tag-${map[s]||'ghost'}">${s}</span>`;
+    };
+    body.innerHTML = `
+      <div class="registry-header">
+        <span>UBID</span><span>Department</span><span>Legacy ID</span><span>Status</span><span>Last Synced</span>
+      </div>
+      ${entries.map(e => `
+        <div class="registry-row">
+          <span class="ubid-code">${e.ubid}</span>
+          <span class="tag tag-blue">${e.departmentCode}</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text-2);">${e.legacyId}</span>
+          ${statusTag(e.syncStatus)}
+          <span style="font-size:10px;color:var(--text-3);">${e.lastSyncedAt ? new Date(e.lastSyncedAt).toLocaleString() : '—'}</span>
+        </div>
+      `).join('')}
+    `;
+  } catch(e) {
+    body.innerHTML = `<div class="empty-state"><div class="ico">⚠</div>${e.message}</div>`;
+  }
+}
+
+// ── REGISTER MAPPING ────────────────────────────────────────────────────────
+async function submitRegistration() {
+  const payload = {
+    ubid: document.getElementById('reg-ubid').value.trim(),
+    departmentCode: document.getElementById('reg-dept').value,
+    legacyId: document.getElementById('reg-legacyid').value.trim(),
+    legacyIdFieldName: document.getElementById('reg-fieldname').value.trim() || null,
+    systemEndpoint: document.getElementById('reg-endpoint').value.trim() || null,
+    syncStatus: 'ACTIVE'
+  };
+  if (!payload.ubid || !payload.legacyId) { toast('UBID and Legacy ID are required', 'error'); return; }
+  try {
+    const result = await api('/registry', { method: 'POST', body: JSON.stringify(payload) });
+    toast(`Registered: ${result.ubid} → ${result.departmentCode}`, 'success');
+    closeModal('modal-register');
+    loadStats();
+    loadRegistry();
+  } catch(e) {
+    toast('Registration failed: ' + e.message, 'error');
+  }
+}
+
+// ── TRIGGER PROPAGATION ────────────────────────────────────────────────────
+async function submitPropagation() {
+  const payload = {
+    ubid: document.getElementById('prop-ubid').value.trim(),
+    businessName: document.getElementById('prop-name').value.trim() || null,
+    operationalStatus: document.getElementById('prop-status').value,
+    primaryPhone: document.getElementById('prop-phone').value.trim() || null,
+    registeredAddress: {
+      line1: document.getElementById('prop-addr1').value.trim() || null,
+      city: document.getElementById('prop-city').value.trim() || null,
+    },
+    sourceSystem: 'SWS'
+  };
+  if (!payload.ubid) { toast('UBID is required', 'error'); return; }
+  const log = document.getElementById('trigger-log');
+  log.textContent = 'Sending…';
+  try {
+    const result = await api('/propagate/sws', { method: 'POST', body: JSON.stringify(payload) });
+    log.textContent = JSON.stringify(result, null, 2);
+    toast('Propagation triggered! Correlation: ' + result.correlationId, 'success');
+    closeModal('modal-propagate');
+    loadStats();
+  } catch(e) {
+    log.textContent = 'ERROR: ' + e.message;
+    toast('Propagation failed: ' + e.message, 'error');
+  }
+}
+
+// ── SUBMIT WEBHOOK ─────────────────────────────────────────────────────────
+async function submitWebhook() {
+  const dept = document.getElementById('wh-dept').value;
+  const payload = {
+    ubid: document.getElementById('wh-ubid').value.trim(),
+    businessName: document.getElementById('wh-name').value.trim() || null,
+    authorisedSignatory: {
+      name: document.getElementById('wh-sig-name').value.trim() || null,
+      designation: document.getElementById('wh-sig-desig').value.trim() || null,
+      email: document.getElementById('wh-sig-email').value.trim() || null,
+    },
+    sourceSystem: dept
+  };
+  if (!payload.ubid) { toast('UBID is required', 'error'); return; }
+  const log = document.getElementById('trigger-log');
+  log.textContent = 'Sending webhook…';
+  try {
+    const result = await api('/webhook/' + dept, { method: 'POST', body: JSON.stringify(payload) });
+    log.textContent = JSON.stringify(result, null, 2);
+    toast('Webhook ingested! Correlation: ' + result.correlationId, 'success');
+    closeModal('modal-webhook');
+    switchPage('trigger', document.querySelector('[data-page=trigger]'));
+    loadStats();
+  } catch(e) {
+    log.textContent = 'ERROR: ' + e.message;
+    toast('Webhook failed: ' + e.message, 'error');
+  }
+}
+
+// ── REFRESH ALL ─────────────────────────────────────────────────────────────
+async function refreshAll() {
+  await checkBackend();
+  await loadStats();
+  await loadOverviewAudit();
+}
+
+// ── INIT ────────────────────────────────────────────────────────────────────
+(async () => {
+  await checkBackend();
+  await loadStats();
+  await loadOverviewAudit();
+  setInterval(refreshAll, 30000); // auto-refresh every 30s
+})();
+</script>
+</body>
+</html>

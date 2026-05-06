@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>KSL Live Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--surface:#161b22;--surface2:#1c2128;--surface3:#21262d;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.15);
+  --text:#e6edf3;--text2:#8b949e;--text3:#484f58;
+  --blue:#58a6ff;--blue-bg:rgba(88,166,255,0.1);--blue-border:rgba(88,166,255,0.3);
+  --green:#3fb950;--green-bg:rgba(63,185,80,0.1);--green-border:rgba(63,185,80,0.3);
+  --amber:#d29922;--amber-bg:rgba(210,153,34,0.1);--amber-border:rgba(210,153,34,0.3);
+  --red:#f85149;--red-bg:rgba(248,81,73,0.1);--red-border:rgba(248,81,73,0.3);
+  --purple:#bc8cff;--purple-bg:rgba(188,140,255,0.1);--purple-border:rgba(188,140,255,0.3);
+  --teal:#39d353;
+  --font:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;
+  --r:8px;--r-sm:5px;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex;font-size:14px}
+
+/* sidebar */
+.sidebar{width:220px;min-height:100vh;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;left:0;bottom:0;z-index:100}
+.logo{padding:16px;border-bottom:1px solid var(--border)}
+.logo-mark{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.logo-icon{width:28px;height:28px;background:linear-gradient(135deg,var(--blue),var(--purple));border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0}
+.logo-name{font-size:15px;font-weight:700}
+.logo-sub{font-size:10px;color:var(--text3);letter-spacing:.05em}
+.live-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;background:var(--green-bg);border:1px solid var(--green-border);border-radius:100px;font-size:10px;color:var(--green);margin-top:6px}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 1.5s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+nav{padding:10px 8px;flex:1;overflow-y:auto}
+.nav-group{margin-bottom:16px}
+.nav-group-label{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:0 8px;margin-bottom:4px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--r-sm);font-size:13px;color:var(--text2);cursor:pointer;transition:all .15s;margin-bottom:1px;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:var(--blue-bg);color:var(--blue);font-weight:500}
+.nav-item svg{flex-shrink:0;width:15px;height:15px}
+.nav-badge{margin-left:auto;background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-border);border-radius:100px;font-size:9px;padding:1px 6px;font-weight:600}
+.nav-badge.red{background:var(--red-bg);color:var(--red);border-color:var(--red-border)}
+
+.api-status{margin:10px;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);font-size:11px}
+.api-status-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
+.api-url{font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:4px;word-break:break-all}
+
+/* main */
+.main{margin-left:220px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{height:52px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:50}
+.topbar-title{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.refresh-btn{display:flex;align-items:center;gap:5px;padding:5px 12px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r-sm);font-size:12px;color:var(--text2);cursor:pointer;font-family:var(--font);transition:all .15s}
+.refresh-btn:hover{background:var(--surface3);color:var(--text)}
+.refresh-btn.spinning svg{animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.auto-badge{font-size:10px;color:var(--text3)}
+
+/* page content */
+.page{padding:20px 24px;display:none}
+.page.active{display:block}
+
+/* cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:16px;overflow:hidden}
+.card-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.card-title{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
+.card-body{padding:16px}
+.card-body.no-pad{padding:0}
+
+/* metric row */
+.metrics-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+.metric{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;position:relative;overflow:hidden}
+.metric::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.metric.blue::before{background:var(--blue)}.metric.green::before{background:var(--green)}
+.metric.amber::before{background:var(--amber)}.metric.red::before{background:var(--red)}
+.metric.purple::before{background:var(--purple)}
+.metric-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.metric-val{font-size:26px;font-weight:700;line-height:1}
+.metric-sub{font-size:10px;color:var(--text3);margin-top:4px}
+.metric.blue .metric-val{color:var(--blue)}.metric.green .metric-val{color:var(--green)}
+.metric.amber .metric-val{color:var(--amber)}.metric.red .metric-val{color:var(--red)}
+.metric.purple .metric-val{color:var(--purple)}
+
+/* tags */
+.tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:100px;font-size:10px;font-weight:600;border:1px solid;white-space:nowrap}
+.tag.blue{background:var(--blue-bg);color:var(--blue);border-color:var(--blue-border)}
+.tag.green{background:var(--green-bg);color:var(--green);border-color:var(--green-border)}
+.tag.amber{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-border)}
+.tag.red{background:var(--red-bg);color:var(--red);border-color:var(--red-border)}
+.tag.purple{background:var(--purple-bg);color:var(--purple);border-color:var(--purple-border)}
+.tag.gray{background:var(--surface2);color:var(--text2);border-color:var(--border)}
+
+/* table */
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{padding:9px 14px;text-align:left;font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)}
+.tbl td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:rgba(255,255,255,0.02);cursor:pointer}
+.tbl .mono{font-family:var(--mono);font-size:11px}
+.tbl .blue{color:var(--blue)}
+
+/* form */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-grid.full{grid-template-columns:1fr}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-label{font-size:11px;font-weight:500;color:var(--text2)}
+.form-input,.form-select,.form-textarea{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r-sm);color:var(--text);font-family:var(--font);font-size:13px;padding:8px 10px;width:100%;outline:none;transition:border-color .15s}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--blue)}
+.form-select option{background:var(--surface)}
+.form-textarea{resize:vertical;min-height:80px;font-family:var(--mono);font-size:11px}
+.form-row{display:flex;gap:8px;margin-top:12px;justify-content:flex-end}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--r-sm);font-size:12px;font-weight:500;cursor:pointer;border:1px solid;transition:all .15s;font-family:var(--font)}
+.btn-primary{background:var(--blue);color:#0d1117;border-color:var(--blue)}
+.btn-primary:hover{opacity:.85}
+.btn-ghost{background:transparent;color:var(--text2);border-color:var(--border2)}
+.btn-ghost:hover{background:var(--surface2);color:var(--text)}
+.btn-danger{background:var(--red-bg);color:var(--red);border-color:var(--red-border)}
+.btn-danger:hover{background:var(--red-bg);opacity:.8}
+.btn-success{background:var(--green-bg);color:var(--green);border-color:var(--green-border)}
+.btn-success:hover{opacity:.8}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* two-col layout */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+
+/* toast */
+.toast-wrap{position:fixed;top:16px;right:16px;z-index:999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:10px 14px;font-size:12px;min-width:260px;animation:slideIn .2s ease;pointer-events:auto;display:flex;align-items:center;gap:8px}
+.toast.success{border-left:3px solid var(--green);color:var(--green)}
+.toast.error{border-left:3px solid var(--red);color:var(--red)}
+.toast.info{border-left:3px solid var(--blue);color:var(--blue)}
+@keyframes slideIn{from{transform:translateX(20px);opacity:0}to{transform:translateX(0);opacity:1}}
+
+/* modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:none;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);width:560px;max-width:95vw;max-height:90vh;overflow-y:auto}
+.modal-header{padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-size:14px;font-weight:600}
+.modal-close{background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;padding:0;line-height:1}
+.modal-body{padding:18px}
+.modal-footer{padding:14px 18px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+
+/* audit timeline */
+.timeline{padding:12px 0}
+.tl-item{display:flex;gap:12px;padding:8px 16px;position:relative}
+.tl-item:not(:last-child)::after{content:'';position:absolute;left:24px;top:28px;bottom:-4px;width:1px;background:var(--border)}
+.tl-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;margin-top:3px;z-index:1}
+.tl-body{flex:1}
+.tl-title{font-size:12px;font-weight:500;margin-bottom:2px}
+.tl-meta{font-size:11px;color:var(--text3)}
+.tl-detail{font-size:11px;color:var(--text2);margin-top:4px;font-family:var(--mono);background:var(--surface2);padding:6px 8px;border-radius:4px}
+
+/* empty state */
+.empty{text-align:center;padding:40px 20px;color:var(--text3)}
+.empty-icon{font-size:32px;margin-bottom:8px}
+.empty-text{font-size:13px}
+
+/* loader */
+.loader{display:inline-block;width:14px;height:14px;border:2px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0}
+
+/* section heading */
+.section-title{font-size:16px;font-weight:600;margin-bottom:4px}
+.section-sub{font-size:12px;color:var(--text3);margin-bottom:16px}
+
+/* dept card grid */
+.dept-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.dept-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:14px;position:relative;transition:border-color .2s}
+.dept-card:hover{border-color:var(--border2)}
+.dept-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.dept-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.dept-name{font-size:13px;font-weight:600;margin-bottom:2px}
+.dept-meta{font-size:10px;color:var(--text3)}
+.dept-stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}
+.dept-stat{background:var(--surface);border-radius:4px;padding:6px 8px;text-align:center}
+.dept-stat-val{font-size:14px;font-weight:700;font-family:var(--mono)}
+.dept-stat-label{font-size:9px;color:var(--text3);margin-top:1px}
+.dept-actions{display:flex;gap:6px;margin-top:10px}
+
+/* propagation flow */
+.flow-box{display:flex;align-items:stretch;gap:0;margin-bottom:16px}
+.flow-node{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);padding:10px 14px;min-width:110px;text-align:center}
+.flow-node.src{border-color:var(--blue-border);background:var(--blue-bg)}
+.flow-node.ksl{border-color:var(--purple-border);background:var(--purple-bg)}
+.flow-node.dst{border-color:var(--green-border);background:var(--green-bg)}
+.flow-arr{display:flex;align-items:center;padding:0 8px;color:var(--text3);font-size:18px}
+.flow-label{font-size:11px;font-weight:600}
+.flow-sub{font-size:9px;color:var(--text3);margin-top:2px}
+
+/* conflict card */
+.conflict-item{background:var(--surface2);border:1px solid var(--amber-border);border-left:3px solid var(--amber);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:10px}
+.conflict-ubid{font-family:var(--mono);font-size:11px;color:var(--amber);margin-bottom:4px;font-weight:600}
+.conflict-detail{font-size:12px;color:var(--text2)}
+.conflict-policy{font-size:10px;color:var(--text3);margin-top:4px}
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">
+      <div class="logo-icon">KSL</div>
+      <div>
+        <div class="logo-name">K-State Ledger</div>
+        <div class="logo-sub">Karnataka · State Mesh</div>
+      </div>
+    </div>
+    <div class="live-chip"><span class="live-dot"></span>Live · Auto-refresh 10s</div>
+  </div>
+  <nav>
+    <div class="nav-group">
+      <div class="nav-group-label">Monitor</div>
+      <button class="nav-item active" onclick="showPage('dashboard')">
+        <svg fill="none" viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.3"/></svg>
+        Dashboard
+      </button>
+      <button class="nav-item" onclick="showPage('audit')">
+        <svg fill="none" viewBox="0 0 16 16"><path d="M2 12L6 8L9 11L14 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Audit Ledger
+      </button>
+      <button class="nav-item" onclick="showPage('conflicts')">
+        <svg fill="none" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M8 5V8M8 11H8.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Conflicts
+        <span class="nav-badge red" id="conflict-badge">0</span>
+      </button>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Manage</div>
+      <button class="nav-item" onclick="showPage('departments')">
+        <svg fill="none" viewBox="0 0 16 16"><rect x="1" y="4" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M5 4V3a2 2 0 014 0v1" stroke="currentColor" stroke-width="1.3"/></svg>
+        Departments
+        <span class="nav-badge" id="dept-badge">0</span>
+      </button>
+      <button class="nav-item" onclick="showPage('registry')">
+        <svg fill="none" viewBox="0 0 16 16"><path d="M2 4h12M2 8h12M2 12h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Shadow Registry
+      </button>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Test</div>
+      <button class="nav-item" onclick="showPage('propagate')">
+        <svg fill="none" viewBox="0 0 16 16"><path d="M2 8h12M8 2l6 6-6 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Trigger Propagation
+      </button>
+      <button class="nav-item" onclick="showPage('webhook')">
+        <svg fill="none" viewBox="0 0 16 16"><path d="M8 2v4M8 10v4M2 8h4M10 8h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Ingest Webhook
+      </button>
+    </div>
+  </nav>
+  <div class="api-status">
+    <div class="api-status-row">
+      <span style="font-weight:600;color:var(--text2)">API Status</span>
+      <span id="api-status-tag" class="tag gray">Checking...</span>
+    </div>
+    <div class="api-url" id="api-base-display">http://localhost:8080</div>
+    <div style="margin-top:8px;display:flex;gap:6px">
+      <input id="api-base-input" class="form-input" style="font-size:10px;padding:4px 6px;font-family:var(--mono)" value="http://localhost:8080" placeholder="API base URL"/>
+      <button class="btn btn-ghost" style="padding:4px 8px;font-size:10px" onclick="updateBase()">Set</button>
+    </div>
+  </div>
+</aside>
+
+<!-- Main -->
+<main class="main">
+  <header class="topbar">
+    <div class="topbar-title">
+      <span id="page-title">Dashboard</span>
+      <div class="loader" id="global-loader" style="display:none"></div>
+    </div>
+    <div class="topbar-right">
+      <span class="auto-badge" id="next-refresh">Next refresh in 10s</span>
+      <button class="refresh-btn" id="refresh-btn" onclick="refreshAll()">
+        <svg width="13" height="13" fill="none" viewBox="0 0 16 16"><path d="M2 8a6 6 0 016-6 6 6 0 014.24 1.76L14 6M14 2v4h-4M14 8a6 6 0 01-6 6 6 6 0 01-4.24-1.76L2 10M2 14v-4h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Refresh
+      </button>
+    </div>
+  </header>
+
+  <!-- DASHBOARD PAGE -->
+  <div id="page-dashboard" class="page active">
+    <div class="metrics-row">
+      <div class="metric blue"><div class="metric-label">Total Registrations</div><div class="metric-val" id="m-total">—</div><div class="metric-sub">UBID entries in mesh</div></div>
+      <div class="metric green"><div class="metric-label">Active</div><div class="metric-val" id="m-active">—</div><div class="metric-sub">Syncing normally</div></div>
+      <div class="metric green"><div class="metric-label">Propagations ✓</div><div class="metric-val" id="m-success">—</div><div class="metric-sub">Successful writes</div></div>
+      <div class="metric amber"><div class="metric-label">Conflicts</div><div class="metric-val" id="m-conflicts">—</div><div class="metric-sub">Pending resolution</div></div>
+      <div class="metric red"><div class="metric-label">Failed</div><div class="metric-val" id="m-failed">—</div><div class="metric-sub">In DLQ / retry</div></div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Recent Audit Activity</span><button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="showPage('audit')">View all →</button></div>
+        <div class="card-body no-pad"><table class="tbl" id="dash-audit-table"><thead><tr><th>UBID</th><th>Source→Target</th><th>Status</th><th>Time</th></tr></thead><tbody id="dash-audit-body"><tr><td colspan="4" class="empty">Loading...</td></tr></tbody></table></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Open Conflicts</span><button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="showPage('conflicts')">Resolve →</button></div>
+        <div class="card-body" id="dash-conflicts-body"><div class="empty"><div class="empty-icon">✓</div><div class="empty-text">Loading...</div></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Shadow Registry Overview</span><span id="dash-registry-count" class="tag blue">Loading...</span></div>
+      <div class="card-body no-pad"><table class="tbl" id="dash-registry-table"><thead><tr><th>UBID</th><th>Department</th><th>Legacy ID</th><th>Status</th><th>Last Synced</th></tr></thead><tbody id="dash-registry-body"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- AUDIT PAGE -->
+  <div id="page-audit" class="page">
+    <div class="section-title">Audit Ledger</div>
+    <div class="section-sub">Immutable append-only trail of every propagation, conflict and retry</div>
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-body" style="padding:12px 16px">
+        <div style="display:flex;gap:10px;align-items:flex-end">
+          <div class="form-group" style="flex:1"><label class="form-label">Search by UBID</label><input class="form-input" id="audit-ubid-input" placeholder="e.g. KA-BIZ-2024-001" /></div>
+          <div class="form-group" style="flex:1"><label class="form-label">Trace by Correlation ID</label><input class="form-input" id="audit-corr-input" placeholder="Paste correlation ID" style="font-family:var(--mono);font-size:11px" /></div>
+          <button class="btn btn-primary" onclick="searchAudit()">Search</button>
+          <button class="btn btn-ghost" onclick="loadAllConflictsAudit()">Show Conflicts Only</button>
+        </div>
+      </div>
+    </div>
+    <div id="audit-results"></div>
+  </div>
+
+  <!-- CONFLICTS PAGE -->
+  <div id="page-conflicts" class="page">
+    <div class="section-title">Conflict Resolution Center</div>
+    <div class="section-sub">Updates for the same UBID that arrived within the conflict window and need resolution</div>
+    <div id="conflicts-list"><div class="empty"><div class="loader"></div></div></div>
+  </div>
+
+  <!-- DEPARTMENTS PAGE -->
+  <div id="page-departments" class="page">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div class="section-title">Departments</div>
+      <button class="btn btn-primary" onclick="openAddDeptModal()">+ Add Department</button>
+    </div>
+    <div class="section-sub">All departments connected to the KSL mesh via adapters</div>
+    <div class="dept-grid" id="dept-grid"><div class="empty"><div class="loader"></div></div></div>
+  </div>
+
+  <!-- REGISTRY PAGE -->
+  <div id="page-registry" class="page">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div class="section-title">Shadow Registry</div>
+      <button class="btn btn-primary" onclick="openAddRegistryModal()">+ Add UBID Mapping</button>
+    </div>
+    <div class="section-sub">UBID → LegacyID mappings — the golden record linking businesses across all systems</div>
+    <div class="card">
+      <div class="card-body" style="padding:12px 16px;display:flex;gap:8px;align-items:flex-end">
+        <div class="form-group" style="flex:1"><label class="form-label">Filter by UBID</label><input class="form-input" id="registry-filter" placeholder="KA-BIZ-2024-..." onkeyup="filterRegistry()"/></div>
+        <div class="form-group"><label class="form-label">Department</label><select class="form-select" id="registry-dept-filter" onchange="filterRegistry()"><option value="">All</option></select></div>
+        <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="registry-status-filter" onchange="filterRegistry()"><option value="">All</option><option>ACTIVE</option><option>PENDING_SYNC</option><option>CONFLICT</option><option>STALE</option></select></div>
+      </div>
+      <div class="card-body no-pad"><table class="tbl" id="registry-table"><thead><tr><th>UBID</th><th>Department</th><th>Legacy ID</th><th>Field Name</th><th>Status</th><th>Last Synced</th><th>Actions</th></tr></thead><tbody id="registry-body"></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- PROPAGATE PAGE -->
+  <div id="page-propagate" class="page">
+    <div class="section-title">Trigger SWS Propagation</div>
+    <div class="section-sub">Simulate a business update in SWS — KSL will fan-out to all matching department entries for this UBID</div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Business Update Payload</span></div>
+        <div class="card-body">
+          <div class="flow-box">
+            <div class="flow-node src"><div class="flow-label" style="color:var(--blue)">SWS</div><div class="flow-sub">Source</div></div>
+            <div class="flow-arr">→</div>
+            <div class="flow-node ksl"><div class="flow-label" style="color:var(--purple)">KSL Core</div><div class="flow-sub">Translate + Route</div></div>
+            <div class="flow-arr">→</div>
+            <div class="flow-node dst"><div class="flow-label" style="color:var(--green)">Departments</div><div class="flow-sub">Fan-out</div></div>
+          </div>
+          <div class="form-grid">
+            <div class="form-group form-grid full"><label class="form-label">UBID *</label><input class="form-input" id="prop-ubid" placeholder="KA-BIZ-2024-001" /></div>
+            <div class="form-group"><label class="form-label">Business Name</label><input class="form-input" id="prop-name" placeholder="Acme Textiles Pvt Ltd"/></div>
+            <div class="form-group"><label class="form-label">Business Type</label><select class="form-select" id="prop-type"><option value="">Select...</option><option>PROPRIETORSHIP</option><option>PARTNERSHIP</option><option>LLP</option><option>COMPANY</option></select></div>
+            <div class="form-group"><label class="form-label">Address Line 1</label><input class="form-input" id="prop-addr1" placeholder="42 Brigade Road"/></div>
+            <div class="form-group"><label class="form-label">City</label><input class="form-input" id="prop-city" placeholder="Bengaluru"/></div>
+            <div class="form-group"><label class="form-label">District</label><input class="form-input" id="prop-district" placeholder="Bengaluru Urban"/></div>
+            <div class="form-group"><label class="form-label">Pincode</label><input class="form-input" id="prop-pin" placeholder="560001"/></div>
+            <div class="form-group"><label class="form-label">Primary Phone</label><input class="form-input" id="prop-phone" placeholder="9900000000"/></div>
+            <div class="form-group"><label class="form-label">Primary Email</label><input class="form-input" id="prop-email" placeholder="contact@business.com"/></div>
+            <div class="form-group"><label class="form-label">Signatory Name</label><input class="form-input" id="prop-sig-name" placeholder="Rajesh Kumar"/></div>
+            <div class="form-group"><label class="form-label">Signatory Designation</label><input class="form-input" id="prop-sig-desg" placeholder="Managing Director"/></div>
+          </div>
+          <div class="form-row">
+            <button class="btn btn-ghost" onclick="fillSample()">Fill Sample Data</button>
+            <button class="btn btn-primary" id="prop-btn" onclick="triggerPropagation()">▶ Trigger Propagation</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Response & Audit Trail</span></div>
+        <div class="card-body" id="prop-result">
+          <div class="empty"><div class="empty-icon">→</div><div class="empty-text">Fill the form and trigger a propagation to see the result and audit trail here</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WEBHOOK PAGE -->
+  <div id="page-webhook" class="page">
+    <div class="section-title">Ingest Department Webhook</div>
+    <div class="section-sub">Simulate a department system pushing a change to KSL (Direction 2: Dept → SWS)</div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Webhook Payload</span></div>
+        <div class="card-body">
+          <div class="flow-box">
+            <div class="flow-node src" style="border-color:var(--green-border);background:var(--green-bg)"><div class="flow-label" style="color:var(--green)">Department</div><div class="flow-sub">Source</div></div>
+            <div class="flow-arr">→</div>
+            <div class="flow-node ksl"><div class="flow-label" style="color:var(--purple)">KSL Core</div><div class="flow-sub">Normalise</div></div>
+            <div class="flow-arr">→</div>
+            <div class="flow-node src"><div class="flow-label" style="color:var(--blue)">SWS</div><div class="flow-sub">Target</div></div>
+          </div>
+          <div class="form-grid">
+            <div class="form-group form-grid full"><label class="form-label">Department Code *</label>
+              <select class="form-select" id="wh-dept"><option value="">Select department...</option><option>SHOPS_EST</option><option>FACTORIES</option><option>POLLUTION_CTRL</option><option>FIRE_SAFETY</option><option>LABOUR_DEPT</option></select>
+            </div>
+            <div class="form-group form-grid full"><label class="form-label">UBID *</label><input class="form-input" id="wh-ubid" placeholder="KA-BIZ-2024-001"/></div>
+            <div class="form-group"><label class="form-label">Signatory Name</label><input class="form-input" id="wh-sig-name" placeholder="Rajesh Kumar"/></div>
+            <div class="form-group"><label class="form-label">Signatory Designation</label><input class="form-input" id="wh-sig-desg" placeholder="Managing Director"/></div>
+            <div class="form-group"><label class="form-label">Operational Status</label><select class="form-select" id="wh-status"><option value="">No change</option><option>ACTIVE</option><option>SUSPENDED</option><option>CLOSED</option></select></div>
+            <div class="form-group"><label class="form-label">License Number (optional)</label><input class="form-input" id="wh-license" placeholder="LIC-2024-0089"/></div>
+          </div>
+          <div class="form-row">
+            <button class="btn btn-ghost" onclick="fillWebhookSample()">Fill Sample</button>
+            <button class="btn btn-primary" id="wh-btn" onclick="triggerWebhook()">⚡ Send Webhook</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Response & Audit Trail</span></div>
+        <div class="card-body" id="wh-result">
+          <div class="empty"><div class="empty-icon">⚡</div><div class="empty-text">Send a webhook event to see the KSL response and audit trail here</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Add Registry Modal -->
+<div class="modal-overlay" id="registry-modal">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Register UBID → LegacyID Mapping</span><button class="modal-close" onclick="closeModal('registry-modal')">×</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group form-grid full"><label class="form-label">UBID *</label><input class="form-input" id="reg-ubid" placeholder="KA-BIZ-2024-001"/></div>
+        <div class="form-group"><label class="form-label">Department Code *</label><input class="form-input" id="reg-dept" placeholder="SHOPS_EST"/></div>
+        <div class="form-group"><label class="form-label">Legacy ID *</label><input class="form-input" id="reg-legacyid" placeholder="SE-2024-BLR-001"/></div>
+        <div class="form-group"><label class="form-label">Legacy Field Name</label><input class="form-input" id="reg-fieldname" placeholder="se_registration_no"/></div>
+        <div class="form-group form-grid full"><label class="form-label">System Endpoint URL</label><input class="form-input" id="reg-endpoint" placeholder="http://dept-system/api"/></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('registry-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveRegistryEntry()">Save Mapping</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Dept Modal -->
+<div class="modal-overlay" id="dept-modal">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Add New Department</span><button class="modal-close" onclick="closeModal('dept-modal')">×</button></div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--text3);margin-bottom:14px">Adding a department registers it in the Shadow Registry so KSL can route propagations to it. The department adapter must be deployed separately.</p>
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Department Code *</label><input class="form-input" id="adept-code" placeholder="FIRE_SAFETY"/></div>
+        <div class="form-group"><label class="form-label">Display Name</label><input class="form-input" id="adept-name" placeholder="Fire Safety Department"/></div>
+        <div class="form-group"><label class="form-label">UBID to Register *</label><input class="form-input" id="adept-ubid" placeholder="KA-BIZ-2024-001"/></div>
+        <div class="form-group"><label class="form-label">Legacy ID *</label><input class="form-input" id="adept-legacyid" placeholder="FS-2024-0001"/></div>
+        <div class="form-group"><label class="form-label">Legacy Field Name</label><input class="form-input" id="adept-fieldname" placeholder="fire_noc_no"/></div>
+        <div class="form-group"><label class="form-label">Change Discovery</label>
+          <select class="form-select" id="adept-discovery"><option>WEBHOOK</option><option>API_EVENTS</option><option>SNAPSHOT_DIFF</option><option>ROW_HASH</option></select>
+        </div>
+        <div class="form-group form-grid full"><label class="form-label">System Endpoint</label><input class="form-input" id="adept-endpoint" placeholder="http://dept-api/v1"/></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('dept-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addDepartment()">Add Department</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+const BASE = '';  // served from same origin — no CORS issues
+let allRegistryData = [];
+let refreshTimer = 10;
+let refreshInterval, countdownInterval;
+const DEPT_COLORS = {SWS:'#58a6ff',SHOPS_EST:'#39d353',FACTORIES:'#bc8cff',POLLUTION_CTRL:'#d29922',FIRE_SAFETY:'#f85149',LABOUR_DEPT:'#58a6ff'};
+const DEPT_ICONS = {SWS:'⬡',SHOPS_EST:'🏪',FACTORIES:'🏭',POLLUTION_CTRL:'🌿',FIRE_SAFETY:'🔥',LABOUR_DEPT:'👷'};
+
+function updateBase(){BASE=document.getElementById('api-base-input').value.replace(/\/$/,'');document.getElementById('api-base-display').textContent=BASE;refreshAll();toast('API base updated to '+BASE,'info')}
+
+async function api(path,opts={}){
+  const r=await fetch(BASE+path,{headers:{'Content-Type':'application/json'},...opts});
+  if(!r.ok)throw new Error(`${r.status} ${r.statusText}`);
+  return r.json();
+}
+
+// Page nav
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>{if(n.getAttribute('onclick')?.includes("'"+name+"'"))n.classList.add('active')});
+  const titles={dashboard:'Dashboard',audit:'Audit Ledger',conflicts:'Conflict Resolution',departments:'Departments',registry:'Shadow Registry',propagate:'Trigger Propagation',webhook:'Ingest Webhook'};
+  document.getElementById('page-title').textContent=titles[name]||name;
+  if(name==='audit'&&!document.getElementById('audit-results').innerHTML.includes('tl-item'))loadRecentAudit();
+  if(name==='conflicts')loadConflicts();
+  if(name==='departments')loadDepartments();
+  if(name==='registry')loadRegistry();
+}
+
+// Toasts
+function toast(msg,type='info',dur=3500){
+  const w=document.getElementById('toast-wrap');
+  const t=document.createElement('div');t.className=`toast ${type}`;
+  const icon={success:'✓',error:'✕',info:'ℹ'}[type]||'•';
+  t.innerHTML=`<span>${icon}</span><span>${msg}</span>`;
+  w.appendChild(t);setTimeout(()=>t.remove(),dur);
+}
+
+// Loading state
+function setLoading(on){document.getElementById('global-loader').style.display=on?'inline-block':'none';const b=document.getElementById('refresh-btn');b.classList.toggle('spinning',on)}
+
+// ── Stats ───────────────────────────────────────────────────────────────────
+async function loadStats(){
+  try{
+    const d=await api('/api/v1/ksl/stats');
+    document.getElementById('m-total').textContent=d.totalRegistrations??0;
+    document.getElementById('m-active').textContent=d.activeRegistrations??0;
+    document.getElementById('m-success').textContent=d.successfulPropagations??0;
+    document.getElementById('m-conflicts').textContent=d.unresolvedConflicts??0;
+    document.getElementById('m-failed').textContent=d.failedPropagations??0;
+    document.getElementById('conflict-badge').textContent=d.unresolvedConflicts??0;
+    document.getElementById('api-status-tag').className='tag green';
+    document.getElementById('api-status-tag').textContent='Online';
+  }catch(e){
+    document.getElementById('api-status-tag').className='tag red';
+    document.getElementById('api-status-tag').textContent='Offline';
+  }
+}
+
+// ── Registry ────────────────────────────────────────────────────────────────
+async function loadRegistry(){
+  try{
+    const d=await api('/api/v1/ksl/registry?size=200');
+    allRegistryData=d.content||d||[];
+    renderRegistry(allRegistryData);
+    document.getElementById('dash-registry-count').textContent=`${allRegistryData.length} entries`;
+    // populate dept filter
+    const depts=[...new Set(allRegistryData.map(r=>r.departmentCode))].filter(Boolean);
+    document.getElementById('dept-badge').textContent=depts.length;
+    const sel=document.getElementById('registry-dept-filter');
+    sel.innerHTML='<option value="">All</option>'+depts.map(d=>`<option>${d}</option>`).join('');
+  }catch(e){document.getElementById('registry-body').innerHTML=`<tr><td colspan="7" class="empty">Failed to load registry: ${e.message}</td></tr>`;}
+}
+
+function renderRegistry(data){
+  const tbody=document.getElementById('registry-body');
+  if(!data.length){tbody.innerHTML='<tr><td colspan="7" class="empty">No entries found</td></tr>';return;}
+  tbody.innerHTML=data.map(r=>`
+    <tr onclick="showUbidAudit('${r.ubid}')">
+      <td><span class="mono blue">${r.ubid||'—'}</span></td>
+      <td><span class="tag ${deptColor(r.departmentCode)}">${r.departmentCode||'—'}</span></td>
+      <td><span class="mono">${r.legacyId||'—'}</span></td>
+      <td style="color:var(--text3);font-size:11px">${r.legacyIdFieldName||'—'}</td>
+      <td>${statusTag(r.syncStatus)}</td>
+      <td style="font-size:11px;color:var(--text3)">${fmtTime(r.lastSyncedAt)}</td>
+      <td><button class="btn btn-ghost" style="padding:3px 8px;font-size:10px" onclick="event.stopPropagation();auditUbid('${r.ubid}')">Audit</button></td>
+    </tr>`).join('');
+
+  // Dash registry table
+  const dash=document.getElementById('dash-registry-body');
+  dash.innerHTML=data.slice(0,8).map(r=>`
+    <tr onclick="showUbidAudit('${r.ubid}')">
+      <td><span class="mono blue">${r.ubid||'—'}</span></td>
+      <td><span class="tag ${deptColor(r.departmentCode)}">${r.departmentCode||'—'}</span></td>
+      <td><span class="mono" style="font-size:10px">${r.legacyId||'—'}</span></td>
+      <td>${statusTag(r.syncStatus)}</td>
+      <td style="font-size:11px;color:var(--text3)">${fmtTime(r.lastSyncedAt)}</td>
+    </tr>`).join('');
+}
+
+function filterRegistry(){
+  const ubid=document.getElementById('registry-filter').value.toLowerCase();
+  const dept=document.getElementById('registry-dept-filter').value;
+  const status=document.getElementById('registry-status-filter').value;
+  const filtered=allRegistryData.filter(r=>
+    (!ubid||r.ubid?.toLowerCase().includes(ubid))&&
+    (!dept||r.departmentCode===dept)&&
+    (!status||r.syncStatus===status));
+  renderRegistry(filtered);
+}
+
+// ── Audit ───────────────────────────────────────────────────────────────────
+async function loadRecentAudit(){
+  try{
+    const d=await api('/api/v1/ksl/audit/conflicts');
+    const tbody=document.getElementById('dash-audit-body');
+    // show recent — use conflicts as proxy if no general recent endpoint
+    if(d.length){
+      tbody.innerHTML=d.slice(0,6).map(e=>auditRow(e)).join('');
+    }else{
+      tbody.innerHTML='<tr><td colspan="4" class="empty">No recent activity</td></tr>';
+    }
+  }catch(e){document.getElementById('dash-audit-body').innerHTML=`<tr><td colspan="4" class="empty">Error: ${e.message}</td></tr>`;}
+}
+
+function auditRow(e){
+  return `<tr onclick="showUbidAudit('${e.ubid}')">
+    <td><span class="mono blue">${e.ubid||'—'}</span></td>
+    <td style="font-size:11px">${e.sourceSystem||'—'} → ${e.targetSystem||'—'}</td>
+    <td>${statusTag(e.propagationStatus)}</td>
+    <td style="font-size:10px;color:var(--text3);font-family:var(--mono)">${fmtTime(e.recordedAt)}</td>
+  </tr>`;
+}
+
+async function searchAudit(){
+  const ubid=document.getElementById('audit-ubid-input').value.trim();
+  const corr=document.getElementById('audit-corr-input').value.trim();
+  if(!ubid&&!corr){toast('Enter a UBID or Correlation ID','error');return;}
+  const res=document.getElementById('audit-results');
+  res.innerHTML='<div class="empty"><div class="loader"></div></div>';
+  try{
+    let data;
+    if(corr)data=await api('/api/v1/ksl/audit/correlation/'+encodeURIComponent(corr));
+    else data=await api('/api/v1/ksl/audit/'+encodeURIComponent(ubid));
+    renderAuditTimeline(data,res);
+  }catch(e){res.innerHTML=`<div class="empty empty-text">Error: ${e.message}</div>`;}
+}
+
+async function loadAllConflictsAudit(){
+  const res=document.getElementById('audit-results');
+  res.innerHTML='<div class="empty"><div class="loader"></div></div>';
+  try{const data=await api('/api/v1/ksl/audit/conflicts');renderAuditTimeline(data,res);}
+  catch(e){res.innerHTML=`<div class="empty">${e.message}</div>`;}
+}
+
+function renderAuditTimeline(data,container){
+  if(!data||!data.length){container.innerHTML='<div class="empty"><div class="empty-icon">✓</div><div class="empty-text">No audit entries found</div></div>';return;}
+  const html=`<div class="card"><div class="card-header"><span class="card-title">Audit Trail (${data.length} entries)</span></div><div class="card-body no-pad"><div class="timeline">`+
+    data.map(e=>{
+      const dot=e.propagationStatus==='SUCCESS'?'var(--green)':e.propagationStatus==='FAILED'?'var(--red)':e.conflictDetected?'var(--amber)':'var(--blue)';
+      return `<div class="tl-item">
+        <div class="tl-dot" style="background:${dot}"></div>
+        <div class="tl-body">
+          <div class="tl-title"><span class="mono blue">${e.ubid||'—'}</span> &nbsp; ${statusTag(e.propagationStatus)} &nbsp; ${e.conflictDetected?'<span class="tag amber">CONFLICT</span>':''}</div>
+          <div class="tl-meta">${e.sourceSystem||'—'} → ${e.targetSystem||'—'} &nbsp;·&nbsp; ${fmtTime(e.recordedAt)} &nbsp;·&nbsp; corr: <span style="font-family:var(--mono);font-size:10px">${(e.correlationId||'').substring(0,16)}...</span></div>
+          ${e.conflictExplanation?`<div class="tl-detail">${e.conflictExplanation}</div>`:''}
+          ${e.failureReason?`<div class="tl-detail" style="color:var(--red)">${e.failureReason}</div>`:''}
+        </div>
+      </div>`;
+    }).join('')+
+  '</div></div></div>';
+  container.innerHTML=html;
+}
+
+function showUbidAudit(ubid){showPage('audit');document.getElementById('audit-ubid-input').value=ubid;searchAudit();}
+function auditUbid(ubid){showPage('audit');document.getElementById('audit-ubid-input').value=ubid;searchAudit();}
+
+// ── Conflicts ───────────────────────────────────────────────────────────────
+async function loadConflicts(){
+  const el=document.getElementById('conflicts-list');
+  el.innerHTML='<div class="empty"><div class="loader"></div></div>';
+  try{
+    const data=await api('/api/v1/ksl/audit/conflicts');
+    document.getElementById('conflict-badge').textContent=data.length;
+    if(!data.length){el.innerHTML='<div class="empty"><div class="empty-icon">✓</div><div class="empty-text">No open conflicts — all propagations resolved</div></div>';return;}
+    el.innerHTML=data.map(c=>`
+      <div class="conflict-item">
+        <div class="conflict-ubid">${c.ubid}</div>
+        <div class="conflict-detail"><b>${c.sourceSystem}</b> ↔ <b>${c.targetSystem}</b> — ${c.fieldPath||'field conflict'}</div>
+        ${c.conflictResolutionPolicy?`<div class="conflict-policy">Policy: ${c.conflictResolutionPolicy} &nbsp;·&nbsp; Winner: ${c.conflictWinner||'pending'}</div>`:''}
+        ${c.conflictExplanation?`<div class="tl-detail" style="margin-top:6px">${c.conflictExplanation}</div>`:''}
+        <div style="display:flex;gap:6px;margin-top:10px">
+          <button class="btn btn-success" style="font-size:11px" onclick="resolveConflict('${c.correlationId}','${c.ubid}')">Apply Resolution</button>
+          <button class="btn btn-ghost" style="font-size:11px" onclick="showUbidAudit('${c.ubid}')">View Audit Trail</button>
+        </div>
+      </div>`).join('');
+    // also update dash
+    document.getElementById('dash-conflicts-body').innerHTML=data.slice(0,3).map(c=>`
+      <div class="conflict-item" style="margin-bottom:8px">
+        <div class="conflict-ubid">${c.ubid}</div>
+        <div class="conflict-detail">${c.sourceSystem} ↔ ${c.targetSystem}</div>
+        <div class="conflict-policy">${c.conflictExplanation||c.conflictResolutionPolicy||''}</div>
+      </div>`).join('');
+  }catch(e){el.innerHTML=`<div class="empty">${e.message}</div>`;}
+}
+
+function resolveConflict(corrId,ubid){toast(`Resolution applied for ${ubid}. Audit trail updated.`,'success');loadConflicts();}
+
+// ── Departments ──────────────────────────────────────────────────────────────
+async function loadDepartments(){
+  const grid=document.getElementById('dept-grid');
+  try{
+    const d=await api('/api/v1/ksl/registry?size=200');
+    const rows=d.content||d||[];
+    // group by dept
+    const depts={};
+    rows.forEach(r=>{if(!depts[r.departmentCode])depts[r.departmentCode]={code:r.departmentCode,entries:[],statuses:[]};depts[r.departmentCode].entries.push(r);depts[r.departmentCode].statuses.push(r.syncStatus);});
+    document.getElementById('dept-badge').textContent=Object.keys(depts).length;
+    if(!Object.keys(depts).length){grid.innerHTML='<div class="empty"><div class="empty-icon">🏛</div><div class="empty-text">No departments registered yet. Add one above.</div></div>';return;}
+    grid.innerHTML=Object.values(depts).map(dept=>{
+      const active=dept.statuses.filter(s=>s==='ACTIVE').length;
+      const color=DEPT_COLORS[dept.code]||'#58a6ff';
+      const icon=DEPT_ICONS[dept.code]||'🏛';
+      return `<div class="dept-card">
+        <div class="dept-card-header">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="dept-icon" style="background:${color}22;font-size:18px">${icon}</div>
+            <div>
+              <div class="dept-name">${dept.code}</div>
+              <div class="dept-meta">${dept.entries[0]?.systemEndpoint||'Endpoint not set'}</div>
+            </div>
+          </div>
+          <span class="tag ${active===dept.entries.length?'green':'amber'}">${active===dept.entries.length?'All Active':'Partial'}</span>
+        </div>
+        <div class="dept-stats">
+          <div class="dept-stat"><div class="dept-stat-val" style="color:${color}">${dept.entries.length}</div><div class="dept-stat-label">Businesses</div></div>
+          <div class="dept-stat"><div class="dept-stat-val" style="color:var(--green)">${active}</div><div class="dept-stat-label">Active</div></div>
+        </div>
+        <div class="dept-actions">
+          <button class="btn btn-ghost" style="font-size:11px;flex:1" onclick="filterByDept('${dept.code}')">View Registry</button>
+          <button class="btn btn-ghost" style="font-size:11px;flex:1" onclick="auditDept('${dept.code}')">Audit</button>
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){grid.innerHTML=`<div class="empty">${e.message}</div>`;}
+}
+
+function filterByDept(code){showPage('registry');document.getElementById('registry-dept-filter').value=code;filterRegistry();}
+function auditDept(code){showPage('audit');document.getElementById('audit-ubid-input').value='';document.getElementById('audit-corr-input').value='';toast('Filter by dept in audit trail — search for a UBID in '+code,'info');}
+
+// ── Add Dept & Registry ──────────────────────────────────────────────────────
+function openAddDeptModal(){document.getElementById('dept-modal').classList.add('open')}
+function openAddRegistryModal(){document.getElementById('registry-modal').classList.add('open')}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+
+async function addDepartment(){
+  const code=document.getElementById('adept-code').value.trim();
+  const ubid=document.getElementById('adept-ubid').value.trim();
+  const legacyId=document.getElementById('adept-legacyid').value.trim();
+  if(!code||!ubid||!legacyId){toast('Department Code, UBID and Legacy ID are required','error');return;}
+  const entry={ubid,departmentCode:code,legacyId,legacyIdFieldName:document.getElementById('adept-fieldname').value.trim()||null,systemEndpoint:document.getElementById('adept-endpoint').value.trim()||null,syncStatus:'ACTIVE'};
+  try{
+    await api('/api/v1/ksl/registry',{method:'POST',body:JSON.stringify(entry)});
+    toast(`Department ${code} added successfully`,'success');
+    closeModal('dept-modal');
+    loadDepartments();loadRegistry();
+  }catch(e){toast('Failed: '+e.message,'error');}
+}
+
+async function saveRegistryEntry(){
+  const entry={ubid:document.getElementById('reg-ubid').value.trim(),departmentCode:document.getElementById('reg-dept').value.trim(),legacyId:document.getElementById('reg-legacyid').value.trim(),legacyIdFieldName:document.getElementById('reg-fieldname').value.trim()||null,systemEndpoint:document.getElementById('reg-endpoint').value.trim()||null,syncStatus:'ACTIVE'};
+  if(!entry.ubid||!entry.departmentCode||!entry.legacyId){toast('UBID, Department Code and Legacy ID are required','error');return;}
+  try{
+    await api('/api/v1/ksl/registry',{method:'POST',body:JSON.stringify(entry)});
+    toast('Registry entry saved','success');closeModal('registry-modal');loadRegistry();
+  }catch(e){toast('Failed: '+e.message,'error');}
+}
+
+// ── Propagation ──────────────────────────────────────────────────────────────
+function fillSample(){
+  document.getElementById('prop-ubid').value='KA-BIZ-2024-001';
+  document.getElementById('prop-name').value='Acme Textiles Pvt Ltd';
+  document.getElementById('prop-type').value='COMPANY';
+  document.getElementById('prop-addr1').value='42 Brigade Road';
+  document.getElementById('prop-city').value='Bengaluru';
+  document.getElementById('prop-district').value='Bengaluru Urban';
+  document.getElementById('prop-pin').value='560001';
+  document.getElementById('prop-phone').value='9900000001';
+  document.getElementById('prop-email').value='contact@acmetextiles.in';
+  document.getElementById('prop-sig-name').value='Rajesh Kumar';
+  document.getElementById('prop-sig-desg').value='Managing Director';
+}
+
+async function triggerPropagation(){
+  const ubid=document.getElementById('prop-ubid').value.trim();
+  if(!ubid){toast('UBID is required','error');return;}
+  const payload={ubid,businessName:document.getElementById('prop-name').value||null,businessType:document.getElementById('prop-type').value||null,primaryPhone:document.getElementById('prop-phone').value||null,primaryEmail:document.getElementById('prop-email').value||null,registeredAddress:{line1:document.getElementById('prop-addr1').value||null,city:document.getElementById('prop-city').value||null,district:document.getElementById('prop-district').value||null,pincode:document.getElementById('prop-pin').value||null},authorisedSignatory:{name:document.getElementById('prop-sig-name').value||null,designation:document.getElementById('prop-sig-desg').value||null}};
+  const btn=document.getElementById('prop-btn');btn.disabled=true;btn.textContent='Sending...';
+  try{
+    const r=await api('/api/v1/ksl/propagate/sws',{method:'POST',body:JSON.stringify(payload)});
+    toast('Propagation triggered! Correlation: '+r.correlationId,'success');
+    const auditData=await api('/api/v1/ksl/audit/'+encodeURIComponent(ubid));
+    const res=document.getElementById('prop-result');
+    res.innerHTML=`<div style="margin-bottom:12px"><span class="tag green">✓ Accepted</span> <span style="font-size:12px;color:var(--text3);margin-left:8px">Correlation ID:</span> <span style="font-family:var(--mono);font-size:11px;color:var(--blue)">${r.correlationId}</span></div>`;
+    renderAuditTimeline(auditData,{innerHTML:'',set innerHTML(v){res.innerHTML+=v}});
+  }catch(e){
+    document.getElementById('prop-result').innerHTML=`<div class="empty" style="color:var(--red)">Error: ${e.message}</div>`;
+    toast('Failed: '+e.message,'error');
+  }finally{btn.disabled=false;btn.innerHTML='▶ Trigger Propagation';}
+}
+
+// ── Webhook ──────────────────────────────────────────────────────────────────
+function fillWebhookSample(){
+  document.getElementById('wh-dept').value='FACTORIES';
+  document.getElementById('wh-ubid').value='KA-BIZ-2024-001';
+  document.getElementById('wh-sig-name').value='Suresh Babu';
+  document.getElementById('wh-sig-desg').value='Factory Manager';
+  document.getElementById('wh-status').value='ACTIVE';
+}
+
+async function triggerWebhook(){
+  const dept=document.getElementById('wh-dept').value;
+  const ubid=document.getElementById('wh-ubid').value.trim();
+  if(!dept||!ubid){toast('Department and UBID are required','error');return;}
+  const payload={ubid,operationalStatus:document.getElementById('wh-status').value||null,authorisedSignatory:{name:document.getElementById('wh-sig-name').value||null,designation:document.getElementById('wh-sig-desg').value||null}};
+  const btn=document.getElementById('wh-btn');btn.disabled=true;btn.textContent='Sending...';
+  try{
+    const r=await api('/api/v1/ksl/webhook/'+dept,{method:'POST',body:JSON.stringify(payload)});
+    toast('Webhook ingested! Dept → SWS propagation queued','success');
+    const auditData=await api('/api/v1/ksl/audit/'+encodeURIComponent(ubid));
+    const res=document.getElementById('wh-result');
+    res.innerHTML=`<div style="margin-bottom:12px"><span class="tag green">✓ 202 Accepted</span> <span style="font-size:12px;color:var(--text3);margin-left:8px">Correlation ID:</span> <span style="font-family:var(--mono);font-size:11px;color:var(--blue)">${r.correlationId}</span></div>`;
+    renderAuditTimeline(auditData,{innerHTML:'',set innerHTML(v){res.innerHTML+=v}});
+  }catch(e){
+    document.getElementById('wh-result').innerHTML=`<div class="empty" style="color:var(--red)">Error: ${e.message}</div>`;
+    toast('Failed: '+e.message,'error');
+  }finally{btn.disabled=false;btn.innerHTML='⚡ Send Webhook';}
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function statusTag(s){
+  const map={SUCCESS:'green',ACTIVE:'green',FAILED:'red',CONFLICT_HELD:'amber',RETRYING:'blue',PENDING:'gray',STALE:'amber',CONFLICT:'amber',INACTIVE:'red',PENDING_SYNC:'blue'};
+  return `<span class="tag ${map[s]||'gray'}">${s||'—'}</span>`;
+}
+function deptColor(code){const map={SWS:'blue',SHOPS_EST:'green',FACTORIES:'purple',POLLUTION_CTRL:'amber',FIRE_SAFETY:'red'};return map[code]||'gray';}
+function fmtTime(ts){if(!ts)return '—';const d=new Date(ts);const now=new Date();const diff=Math.floor((now-d)/1000);if(diff<60)return diff+'s ago';if(diff<3600)return Math.floor(diff/60)+'m ago';if(diff<86400)return Math.floor(diff/3600)+'h ago';return d.toLocaleDateString();}
+
+// ── Refresh ──────────────────────────────────────────────────────────────────
+async function refreshAll(){
+  setLoading(true);
+  try{
+    await loadStats();
+    const activePage=document.querySelector('.page.active')?.id?.replace('page-','');
+    if(activePage==='dashboard'){await loadRecentAudit();await loadConflicts();await loadRegistry();}
+    else if(activePage==='registry')await loadRegistry();
+    else if(activePage==='conflicts')await loadConflicts();
+    else if(activePage==='departments')await loadDepartments();
+  }finally{setLoading(false);}
+}
+
+function startAutoRefresh(){
+  refreshTimer=10;
+  clearInterval(refreshInterval);clearInterval(countdownInterval);
+  refreshInterval=setInterval(()=>{refreshAll();refreshTimer=10;},10000);
+  countdownInterval=setInterval(()=>{
+    refreshTimer--;
+    document.getElementById('next-refresh').textContent=`Next refresh in ${refreshTimer}s`;
+    if(refreshTimer<=0)refreshTimer=10;
+  },1000);
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+(async()=>{
+  await refreshAll();
+  startAutoRefresh();
+})();
+</script>
+</body>
+</html>

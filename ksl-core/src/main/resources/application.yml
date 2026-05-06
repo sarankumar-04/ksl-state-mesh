@@ -1,0 +1,113 @@
+spring:
+  application:
+    name: ksl-core
+
+  # ── Database ────────────────────────────────────────────────────────────────
+  datasource:
+    url: jdbc:h2:mem:ksldb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: ksl
+    password: ksl
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  # ── Kafka ────────────────────────────────────────────────────────────────────
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all                        # wait for all replicas
+      retries: 3
+      properties:
+        enable.idempotence: true       # exactly-once producer semantics
+        max.in.flight.requests.per.connection: 1
+    consumer:
+      group-id: ksl-consumer-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: earliest
+      enable-auto-commit: false        # manual ACK for at-least-once guarantee
+
+# ── KSL Configuration ──────────────────────────────────────────────────────────
+ksl:
+  conflict:
+    window-seconds: 30               # updates within 30s of each other = conflict
+
+  polling:
+    high-frequency-ms: 120000        # 2 min for high-activity records
+    normal-frequency-ms: 900000      # 15 min for normal records
+    slow-frequency-ms: 7200000       # 2 hours for stable records
+
+  adapters:
+    shops-est:
+      base-url: http://localhost:8081/shops-est/api
+    factories:
+      base-url: http://localhost:8082/factories/api
+    pollution-ctrl:
+      base-url: http://localhost:8083/pctb/api
+    sws:
+      base-url: http://localhost:8080/sws/api
+
+# ── Resilience4j Circuit Breakers ─────────────────────────────────────────────
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+    instances:
+      shops-est:
+        base-config: default
+      factories:
+        base-config: default
+      pollution-ctrl:
+        base-config: default
+      sws:
+        base-config: default
+
+# ── Actuator & Metrics ─────────────────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# ── OpenAPI ────────────────────────────────────────────────────────────────────
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+
+# ── Security (dev profile — relax for sandbox) ────────────────────────────────
+spring.security.user.name: ksl-admin
+spring.security.user.password: ksl-sandbox-2024
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging:
+  level:
+    com.karnataka.ksl: DEBUG
+    org.springframework.kafka: INFO
+    org.hibernate.SQL: WARN
